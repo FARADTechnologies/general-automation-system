@@ -33,13 +33,13 @@ export function ErrorState({ title = 'Something went wrong', sub = 'Please try a
 
 // Renders the right state for a resource from useBank(); children only when the data is ready.
 export function Resource<T>({ res, empty, emptyTitle = 'Nothing here yet', children }: {
-  res: { status: 'loading' | 'error' | 'ready'; data?: T; retry?: () => void };
+  res: { status: 'loading' | 'error' | 'ready'; data?: T; reload?: () => void };
   empty?: (data: T) => boolean;
   emptyTitle?: string;
   children: (data: T) => React.ReactNode;
 }) {
   if (res.status === 'loading') return <Loading />;
-  if (res.status === 'error' || res.data === undefined) return <ErrorState onRetry={res.retry} />;
+  if (res.status === 'error' || res.data === undefined) return <ErrorState onRetry={res.reload} />;
   if (empty?.(res.data)) return <Empty title={emptyTitle} />;
   return <>{children(res.data)}</>;
 }

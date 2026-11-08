@@ -3,7 +3,7 @@
 import React from 'react';
 import { Mic, Send, Square, Pause } from 'lucide-react';
 // TODO(data): confirm the runtime hook names and shapes (see the design issue "Runtime hooks for the agent dock").
-import { useUi, useAgent } from '../../runtime';
+import { useUi, useField, useAgent } from '../../runtime';
 
 const STATUS_LABEL: Record<string, string> = {
   idle: 'Ready',
@@ -29,10 +29,13 @@ export function AgentStatus() {
 }
 
 export default function AgentDock() {
-  const { ui } = useUi();
+  const { ui, intent } = useUi();
   // TODO(data): useAgent() is expected to expose send(text), mic start/stop, stop() and the "Try saying" list from live capabilities.
   const agent = useAgent();
-  const [text, setText] = React.useState(''); // purely local draft of what the customer types; sent as agent.input
+  // the draft lives in the hub so the stage mirrors what the customer types
+  const draft = useField('agent', 'agent-text-input');
+  const text = draft.value || '';
+  const clear = () => intent({ type: 'field.set', form: 'agent', field: 'agent-text-input', value: '' });
   const busy = !['idle', 'error', 'handoff'].includes(ui.agent.status);
   const listening = ui.agent.status === 'listening';
 
@@ -41,7 +44,7 @@ export default function AgentDock() {
     const t = text.trim();
     if (!t) return;
     agent.send(t);
-    setText('');
+    clear();
   };
 
   return (
@@ -68,11 +71,9 @@ export default function AgentDock() {
         </button>
         <input
           className="agent-input"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
+          {...draft}
           placeholder="Type what you need"
           aria-label="Type what you need"
-          data-nav-id="agent-text-input"
         />
         {busy ? (
           <button type="button" className="agent-stop" onClick={() => agent.stop()} aria-label="Stop the assistant" data-nav-id="agent-stop">

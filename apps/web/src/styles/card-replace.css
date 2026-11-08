@@ -14,3 +14,5 @@
 .pick-chip.on { background: var(--ink); color: #fff; box-shadow: none; }
 .pick-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
 .pick-chip:focus-within { outline: 3px solid var(--sea); outline-offset: 2px; }
+.field.pick-chips { flex-direction: row; flex-wrap: wrap; align-items: center; }
+.field.pick-chips .pick-chip { width: auto; flex: none; }

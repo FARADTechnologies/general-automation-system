@@ -1,5 +1,6 @@
 // /bills: every unpaid bill, paid together in one bank confirmation (bills.pay_all.prepare).
 import React from 'react';
+import '../../styles/bills.css';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Receipt } from 'lucide-react';
 import { hub, useUi } from '../../runtime/hub.ts';

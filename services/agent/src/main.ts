@@ -5,6 +5,7 @@ import { loadEnv } from '@gas/shared/env';
 import { CORE_PROMPT, DEFAULT_CONFIG } from '@gas/agent-core';
 import { AnthropicModel } from './model.ts';
 import { GeminiModel } from './model-gemini.ts';
+import { openAICompatFromEnv } from './model-openai.ts';
 import { createAgentServer } from './server.ts';
 import { sttFromEnv } from './stt.ts';
 
@@ -16,8 +17,10 @@ const tryCommands = JSON.parse(readFileSync(resolve(root, 'domains/bank/try-comm
 const sttHints = JSON.parse(readFileSync(resolve(root, 'domains/bank/stt-hints.json'), 'utf8')) as string[];
 const stt = sttFromEnv(process.env, sttHints);
 
-// AGENT_PROVIDER selects the model behind the same interface: anthropic (default) or gemini.
-const model = process.env.AGENT_PROVIDER === 'gemini'
+// AGENT_PROVIDER selects the model behind the same interface: anthropic (default), gemini, or an
+// OpenAI-compatible provider (mistral, groq, openai-compat).
+const provider = process.env.AGENT_PROVIDER || 'anthropic';
+const model = provider !== 'anthropic' && provider !== 'gemini' ? openAICompatFromEnv(provider, process.env) : provider === 'gemini'
   ? new GeminiModel({ model: process.env.GEMINI_MODEL || 'gemini-3.6-flash', fallbacks: (process.env.GEMINI_FALLBACKS || 'gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-2.5-flash').split(',').filter(Boolean), apiKey: process.env.GEMINI_API_KEY || '', thinkingLevel: (process.env.GEMINI_THINKING as 'low') || 'low' })
   : new AnthropicModel({
   model: process.env.AGENT_MODEL || 'claude-sonnet-5-5',

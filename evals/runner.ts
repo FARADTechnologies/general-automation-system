@@ -12,6 +12,7 @@ import { loadEnv } from '../packages/shared/src/env.ts';
 import { CORE_PROMPT } from '../packages/agent-core/src/index.ts';
 import { AnthropicModel } from '../services/agent/src/model.ts';
 import { GeminiModel } from '../services/agent/src/model-gemini.ts';
+import { openAICompatFromEnv } from '../services/agent/src/model-openai.ts';
 import { startFullStack } from '../tests/agent.stack.ts';
 
 loadEnv();
@@ -82,7 +83,9 @@ async function main() {
   const PROVIDER = arg('provider', process.env.AGENT_PROVIDER || 'anthropic');
   const model = PROVIDER === 'gemini'
     ? new GeminiModel({ model: arg('model', process.env.GEMINI_MODEL || 'gemini-3.6-flash'), fallbacks: (process.env.GEMINI_FALLBACKS || 'gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-2.5-flash').split(','), apiKey: process.env.GEMINI_API_KEY || '', thinkingLevel: (arg('thinking', 'low') as 'low') })
-    : new AnthropicModel({ model: MODEL, effort: EFFORT, thinking: THINKING, fallback: process.env.AGENT_FALLBACK !== '0' });
+    : PROVIDER === 'anthropic'
+      ? new AnthropicModel({ model: MODEL, effort: EFFORT, thinking: THINKING, fallback: process.env.AGENT_FALLBACK !== '0' })
+      : openAICompatFromEnv(PROVIDER, { ...process.env, ...(process.argv.includes('--model') ? { MISTRAL_MODEL: arg('model', ''), GROQ_MODEL: arg('model', ''), OPENAI_COMPAT_MODEL: arg('model', '') } : {}) });
   const st = await startFullStack(model, { stepMs: 5 });
   const promptHash = createHash('sha256').update(CORE_PROMPT + readFileSync(resolve(ROOT, 'domains/bank/prompt.md'), 'utf8')).digest('hex').slice(0, 12);
   const started = new Date().toISOString();

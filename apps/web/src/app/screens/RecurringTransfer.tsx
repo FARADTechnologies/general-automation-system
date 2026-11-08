@@ -1,5 +1,6 @@
 // /transfers/recurring: send the same amount to someone every month (transfer.recurring.prepare).
 import React from 'react';
+import '../../styles/recurring.css';
 import { useNavigate } from 'react-router-dom';
 import { Repeat } from 'lucide-react';
 import { hub, useField, useUi } from '../../runtime/hub.ts';

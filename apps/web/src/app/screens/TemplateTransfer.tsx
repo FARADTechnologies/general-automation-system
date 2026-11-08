@@ -1,5 +1,6 @@
 // /transfers/template/:id: a saved payment, ready to confirm (transfer.template.prepare).
 import React from 'react';
+import '../../styles/template-transfer.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FileText } from 'lucide-react';
 import { hub, useField, useUi } from '../../runtime/hub.ts';

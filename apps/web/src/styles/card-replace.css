@@ -1,0 +1,10 @@
+/* /app/cards/:id/replace */
+.replace-reasons { display: flex; flex-wrap: wrap; gap: 8px; border: 0; padding: 0; margin: 0; }
+.replace-reasons legend, .replace-screen fieldset legend { font-weight: 650; margin-bottom: 8px; padding: 0; }
+.replace-screen fieldset { border: 0; padding: 0; margin: 0; }
+.chip.big { min-height: 48px; padding: 0 18px; font-size: 16px; display: inline-flex; align-items: center; cursor: pointer; }
+.chip.big:focus-within { outline: 3px solid var(--sea); outline-offset: 2px; }
+.replace-note { margin: 0; color: var(--coral); font-weight: 600; }
+.replace-branches { list-style: none; margin: 0; padding: 0; }
+.replace-branches .li { min-height: 68px; cursor: pointer; }
+.replace-branches input[type="radio"] { width: 22px; height: 22px; accent-color: var(--sea); flex: none; }

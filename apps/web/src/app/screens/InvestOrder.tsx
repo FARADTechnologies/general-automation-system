@@ -66,11 +66,11 @@ export function OrderForm() {
       <header className="hdr"><button className="icon-btn" aria-label="Back" onClick={() => nav(`/invest/${instrument.value}`)} data-nav-id="back">‹</button><h1>Order</h1><span /></header>
       <SimBadge />
       <div className="field"><label htmlFor="ord-inst">Instrument</label><input id="ord-inst" className="input" readOnly {...instrument} /></div>
-      <fieldset className="field inv-side">
+      <fieldset className="field pick-chips">
         <legend>Buy or sell</legend>
         {(['buy', 'sell'] as const).map((v) => (
-          <label key={v} className={'chip big' + (side.value === v ? ' on' : '')}>
-            <input type="radio" name="ord-side" value={v} checked={side.value === v} onChange={side.onChange} className="sr-only" />{v === 'buy' ? 'Buy' : 'Sell'}
+          <label key={v} className={'pick-chip' + (side.value === v ? ' on' : '')}>
+            <input type="radio" name="ord-side" value={v} checked={side.value === v} onChange={side.onChange} />{v === 'buy' ? 'Buy' : 'Sell'}
           </label>
         ))}
       </fieldset>

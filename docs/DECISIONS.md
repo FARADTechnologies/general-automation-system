@@ -38,3 +38,7 @@ One line per reversible decision. Newest at the bottom.
 - 2026-11-08 Runtime-owned screens live in `apps/web/src/app/core-screens/`, outside the designer's paths, so the two never edit the same files.
 - 2026-11-08 The stage reads a read-only, masked "bank view" of its own session from the Bridge to show what the bank received.
 - 2026-11-08 Dev gateway is Vite's proxy; production uses a small gateway with the same routes (M4).
+- 2026-11-08 Production runs one container: a launcher starts Core Bank, Bridge, Agent and a gateway as separate processes, each with only its own environment (the agent never gets the Core Bank URL or key). Internal keys are generated per boot unless set.
+- 2026-11-08 The gateway exposes only the web client, /api/agent, /ws, /bridge/* (confirmation) and /app-api/*; Core Bank internals and the Bridge's MCP and admin routes are not reachable from outside.
+- 2026-11-08 Early phone tests use a Cloudflare quick tunnel (HTTPS + WebSocket, no account). It depends on this laptop and is not the final hosting.
+- 2026-11-08 ANTHROPIC_API_KEY is stored as a GitHub Actions secret for CI and deploys.

@@ -3,6 +3,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 
 export function loadEnv(start = process.cwd()): void {
+  // In production each process receives exactly its own variables from the launcher.
+  if (process.env.NODE_ENV === 'production') return;
   let dir = start;
   for (let i = 0; i < 6; i++) {
     const p = resolve(dir, '.env');

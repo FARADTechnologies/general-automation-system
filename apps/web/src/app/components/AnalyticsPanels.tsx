@@ -6,6 +6,33 @@ import { Loading, Empty, ErrorState } from './States';
 
 type Period = '7d' | '30d' | '90d';
 
+export function SpendByCategory({ period }: { period: Period }) {
+  // TODO(data): analytics.spend_by_category -> { total, items: [{ category, amount, pct }] }, sorted by the bank.
+  const r = useBank('analytics.by_category', { period });
+  return (
+    <section className="block an-panel" aria-labelledby="an-cat" data-nav-id="analytics-by-category">
+      <h2 id="an-cat">Spending by category</h2>
+      {r.status === 'loading' && <Loading />}
+      {r.status === 'error' && <ErrorState onRetry={r.retry} />}
+      {r.status === 'ready' && r.data.items.length === 0 && <Empty title="No spending in this period" />}
+      {r.status === 'ready' && r.data.items.length > 0 && (
+        <>
+          <p className="an-summary">Spent <strong className="num">{r.data.total}</strong></p>
+          <ul className="an-cats">
+            {r.data.items.map((x: { category: string; amount: string; pct: number }) => (
+              <li key={x.category} data-nav-id={`analytics-category-${x.category.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
+                <span className="an-cat">{x.category}</span>
+                <span className="an-bar" aria-hidden="true"><i style={{ width: `${x.pct}%` }} /></span>
+                <span className="num an-val">{x.amount}<small>{x.pct}%</small></span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
+
 export function ComparePeriods({ period }: { period: Period }) {
   // TODO(data): analytics.compare_periods -> { summary, rows: [{ category, now, before, nowPct, beforePct }] }
   const r = useBank('analytics.compare', { period });

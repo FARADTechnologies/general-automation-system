@@ -1,0 +1,5 @@
+/* /app/bills */
+.bills-sum { font-size: 32px; font-weight: 700; }
+.bills-list { list-style: none; margin: 0; padding: 0; }
+.bills-list .li { min-height: 64px; cursor: pointer; }
+.bills-list input[type="checkbox"] { width: 24px; height: 24px; accent-color: var(--sea); flex: none; }

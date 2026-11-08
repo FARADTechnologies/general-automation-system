@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 if (existsSync(resolve(root, '.env'))) {
@@ -20,13 +20,15 @@ const secret = (k) => E[k] || randomBytes(24).toString('base64url');
 const keys = { core: secret('CORE_BANK_SERVICE_KEY'), agent: secret('BRIDGE_AGENT_KEY'), admin: secret('BRIDGE_ADMIN_KEY'), hook: secret('BRIDGE_WEBHOOK_SECRET') };
 const base = { PATH: E.PATH, NODE_ENV: 'production', SystemRoot: E.SystemRoot, HOME: E.HOME, USERPROFILE: E.USERPROFILE };
 
-// run tsx through node directly: no shell, so paths with spaces work on every OS
-const tsxCli = resolve(root, 'node_modules/tsx/dist/cli.mjs');
+// Register tsx in-process (one node process per service instead of a cli wrapper plus a child),
+// which halves memory on small hosts. No shell, so paths with spaces work on every OS.
+const tsxLoader = pathToFileURL(resolve(root, 'node_modules/tsx/dist/loader.mjs')).href;
 const node = process.execPath;
+const ts = (entry) => ['--max-old-space-size=160', '--import', tsxLoader, entry];
 const procs = [
-  { name: 'core-bank', cwd: 'services/core-bank', cmd: node, args: [tsxCli, 'src/main.ts'], env: { CORE_BANK_PORT: '4100', CORE_BANK_SERVICE_KEY: keys.core } },
-  { name: 'bridge', cwd: 'services/bridge', cmd: node, args: [tsxCli, 'src/main.ts'], env: { BRIDGE_PORT: '4200', CORE_BANK_URL: 'http://127.0.0.1:4100', CORE_BANK_SERVICE_KEY: keys.core, BRIDGE_AGENT_KEY: keys.agent, BRIDGE_ADMIN_KEY: keys.admin, AGENT_WEBHOOK_URL: 'http://127.0.0.1:4300/hooks/bridge', BRIDGE_WEBHOOK_SECRET: keys.hook, BRIDGE_CONSOLE_PASSCODE: E.BRIDGE_CONSOLE_PASSCODE || '' } },
-  { name: 'agent', cwd: 'services/agent', cmd: node, args: [tsxCli, 'src/main.ts'], env: { AGENT_PORT: '4300', BRIDGE_URL: 'http://127.0.0.1:4200', BRIDGE_AGENT_KEY: keys.agent, BRIDGE_WEBHOOK_SECRET: keys.hook, ANTHROPIC_API_KEY: E.ANTHROPIC_API_KEY || '', AGENT_MODEL: E.AGENT_MODEL || 'claude-sonnet-5-5', AGENT_EFFORT: E.AGENT_EFFORT || 'medium', AGENT_THINKING: E.AGENT_THINKING || 'between_tools', AGENT_FALLBACK: E.AGENT_FALLBACK || '1', SESSION_CALL_CAP: E.SESSION_CALL_CAP || '40', SESSION_SPEND_CAP_USD: E.SESSION_SPEND_CAP_USD || '1.50', CHOREO_STEP_MS: E.CHOREO_STEP_MS || '220' } },
+  { name: 'core-bank', cwd: 'services/core-bank', cmd: node, args: ts('src/main.ts'), env: { CORE_BANK_PORT: '4100', CORE_BANK_SERVICE_KEY: keys.core } },
+  { name: 'bridge', cwd: 'services/bridge', cmd: node, args: ts('src/main.ts'), env: { BRIDGE_PORT: '4200', CORE_BANK_URL: 'http://127.0.0.1:4100', CORE_BANK_SERVICE_KEY: keys.core, BRIDGE_AGENT_KEY: keys.agent, BRIDGE_ADMIN_KEY: keys.admin, AGENT_WEBHOOK_URL: 'http://127.0.0.1:4300/hooks/bridge', BRIDGE_WEBHOOK_SECRET: keys.hook, BRIDGE_CONSOLE_PASSCODE: E.BRIDGE_CONSOLE_PASSCODE || '' } },
+  { name: 'agent', cwd: 'services/agent', cmd: node, args: ts('src/main.ts'), env: { AGENT_PORT: '4300', BRIDGE_URL: 'http://127.0.0.1:4200', BRIDGE_AGENT_KEY: keys.agent, BRIDGE_WEBHOOK_SECRET: keys.hook, ANTHROPIC_API_KEY: E.ANTHROPIC_API_KEY || '', AGENT_PROVIDER: E.AGENT_PROVIDER || 'anthropic', GEMINI_API_KEY: E.GEMINI_API_KEY || '', GEMINI_MODEL: E.GEMINI_MODEL || 'gemini-3.6-flash', GEMINI_FALLBACKS: E.GEMINI_FALLBACKS || 'gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-2.5-flash', GEMINI_THINKING: E.GEMINI_THINKING || 'low', AGENT_MODEL: E.AGENT_MODEL || 'claude-sonnet-5-5', AGENT_EFFORT: E.AGENT_EFFORT || 'medium', AGENT_THINKING: E.AGENT_THINKING || 'between_tools', AGENT_FALLBACK: E.AGENT_FALLBACK || '1', SESSION_CALL_CAP: E.SESSION_CALL_CAP || '40', SESSION_SPEND_CAP_USD: E.SESSION_SPEND_CAP_USD || '1.50', CHOREO_STEP_MS: E.CHOREO_STEP_MS || '220' } },
   { name: 'gateway', cwd: '.', cmd: node, args: ['services/gateway/src/server.mjs'], env: { PORT: E.PORT || '8080', WEB_DIST: resolve(root, 'apps/web/dist') } },
 ];
 

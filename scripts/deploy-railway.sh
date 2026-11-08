@@ -8,6 +8,10 @@ railway status >/dev/null 2>&1 || railway init --name general-automation-system
 railway add --service app >/dev/null 2>&1 || true
 railway variables --service app \
   --set "ANTHROPIC_API_KEY=$(get ANTHROPIC_API_KEY)" \
+  --set "GEMINI_API_KEY=$(get GEMINI_API_KEY)" \
+  --set "AGENT_PROVIDER=${AGENT_PROVIDER:-$(get AGENT_PROVIDER)}" \
+  --set "GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.6-flash}" \
+  --set "GEMINI_FALLBACKS=${GEMINI_FALLBACKS:-gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-2.5-flash}" \
   --set "BRIDGE_CONSOLE_PASSCODE=$(get BRIDGE_CONSOLE_PASSCODE)" \
   --set "AGENT_MODEL=${AGENT_MODEL:-claude-sonnet-5-5}" \
   --set "AGENT_EFFORT=${AGENT_EFFORT:-medium}" \

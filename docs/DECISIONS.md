@@ -43,3 +43,9 @@ One line per reversible decision. Newest at the bottom.
 - 2026-11-08 Early phone tests use a Cloudflare quick tunnel (HTTPS + WebSocket, no account). It depends on this laptop and is not the final hosting.
 - 2026-11-08 ANTHROPIC_API_KEY is stored as a GitHub Actions secret for CI and deploys.
 - 2026-11-08 Designer branches merged after review; the designer's /transfers/contact, /subscriptions, /bills, /invest and stage panels replace the runtime's placeholder versions. The bank app backend serves display-ready analytics, branches and simulated investment resources so the screens hold no arithmetic.
+- 2026-11-09 Anthropic API credit ran out; a Gemini adapter (`AGENT_PROVIDER=gemini`) sits behind the same model interface. Guards, Bridge and confirmation are unchanged, so the invariants hold for either model.
+- 2026-11-09 Gemini free tier allows 20 requests per day per model (measured from the 429 quota details; resets at midnight Pacific = 12:00 Baku). That covers about 5 customer turns per model per day, so it is an emergency fallback, not a demo runtime. Fallback order: 3.6-flash, 3-flash-preview, 3.5-flash-lite, 2.5-flash (3.5-flash shares the 3.6-flash quota).
+- 2026-11-09 A model whose daily quota is exhausted is skipped until its retry time instead of being retried on every turn.
+- 2026-11-09 After the customer confirms, the tool result says plainly that the action was executed and verified; a stale "nothing executed" note made one model ask for confirmation again.
+- 2026-11-09 Production launcher registers tsx in-process (`node --import tsx`), one process per service: ~300 MB in total, which fits Railway's Free plan.
+- 2026-11-09 Hosting: Railway Free plan, project `general-automation-system`, one container. The Cloudflare tunnel stays as backup.

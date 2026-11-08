@@ -1,6 +1,7 @@
 // /split/:txId: ask people to pay their share of a payment (split.calculate, split.request.prepare).
 // Only requests are sent; nothing is taken from anyone. The share is calculated by the bank.
 import React from 'react';
+import '../../styles/split.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { hub, useField, useUi } from '../../runtime/hub.ts';
 import { useBank } from '../../runtime/bank.ts';

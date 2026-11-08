@@ -85,7 +85,8 @@ describe('I3: one-time, expiring confirmation bound to the payload hash', () => 
 
     const bad = await dev.post(prep.body.prepared_id, { decision: 'approve', payload_hash: view.payloadHash, proof: { method: 'biometric', assertion: 'nope' } });
     expect(bad.status).toBe(401);
-    const tampered = await dev.post(prep.body.prepared_id, { decision: 'approve', payload_hash: view.payloadHash.replace(/^./, '0'), proof: { method: 'biometric', assertion: 'mock-biometric-ok' } });
+    const flipped = (view.payloadHash[0] === '0' ? '1' : '0') + view.payloadHash.slice(1);
+    const tampered = await dev.post(prep.body.prepared_id, { decision: 'approve', payload_hash: flipped, proof: { method: 'biometric', assertion: 'mock-biometric-ok' } });
     expect(tampered.status).toBe(409);
 
     const ok = await dev.post(prep.body.prepared_id, { decision: 'approve', payload_hash: view.payloadHash, proof: { method: 'biometric', assertion: 'mock-biometric-ok' } });

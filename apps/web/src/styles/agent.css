@@ -1,0 +1,18 @@
+/* Handoff notice, plus larger touch targets on the core dock and chooser for older customers.
+   Only sizes are changed on the core components; their colours and layout stay. */
+.agent-btn { width: 48px; height: 48px; }
+.agent-bar input { font-size: 17px; min-height: 44px; }
+.chooser-opt { min-height: 64px; font-size: 18px; }
+.chooser-n { width: 36px; height: 36px; font-size: 18px; }
+.try-chips .chip { min-height: 44px; font-size: 15px; }
+
+.handoff-overlay { position: absolute; inset: 0; z-index: 70; background: rgba(6, 18, 22, .5); display: flex; align-items: flex-end; }
+.handoff-sheet { width: 100%; max-height: 92%; overflow-y: auto; background: var(--bg); color: var(--text); border-radius: 26px 26px 0 0; padding: 18px 16px 22px; display: flex; flex-direction: column; gap: 10px; }
+.handoff-sheet h2 { font-size: 22px; line-height: 1.25; margin: 0; }
+.handoff-sheet h3 { margin: 6px 0 0; font-size: 16px; }
+.handoff-ico { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, #3b82f6 16%, var(--surface)); color: #2563eb; }
+.handoff-ref { margin: 0; color: var(--muted); font-size: 15px; }
+.handoff-goal { margin: 0; font-size: 17px; }
+.handoff-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 16px; }
+.handoff-list li { display: flex; gap: 8px; align-items: center; }
+.handoff-sheet :focus-visible { outline: 3px solid var(--sea); outline-offset: 2px; }

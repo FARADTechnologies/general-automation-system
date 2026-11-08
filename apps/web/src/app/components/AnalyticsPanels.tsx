@@ -1,6 +1,7 @@
 // Panels that extend /app/analytics: compare two periods, top expenses, income sources.
 // Every number comes from the analytics capabilities; the UI only lays them out.
 import React from 'react';
+import '../../styles/analytics.css';
 import { useNavigate } from 'react-router-dom';
 import { Loading, Empty, ErrorState } from './States';
 // Resources the app API does not expose yet. Each screen keeps its ready layout and shows the loading

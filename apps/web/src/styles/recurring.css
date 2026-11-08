@@ -1,0 +1,4 @@
+/* /app/transfers/recurring */
+.sec-h { font-size: 18px; margin: 6px 0 0; }
+.rec-list { list-style: none; margin: 0; padding: 0; }
+.rec-list .li { min-height: 64px; }

@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Seda Voice Banking</title>
+<meta name="description" content="Seda lets a bank add voice journeys to its own app. The app does the steps on screen, the customer confirms with a fingerprint, and every step is traced.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%235b47e0'/><path d='M8 14v4M12 11v10M16 8v16M20 12v8M24 15v2' stroke='white' stroke-width='2.6' stroke-linecap='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="scrollcraft.css">
+<style>
+  /* Split stage, premium-minimal. Two grounds held for the whole page; the divider is the chrome.
+     Six colours, two faces. */
+  :root {
+    --sc-canvas: #0d0c12;  --sc-surface: #17161e;
+    --sc-ink: #f2f0f8;     --sc-ink-soft: #a9a5bb;
+    --sc-accent: #9c8cff;  --sc-accent-ink: #0d0c12;
+    --sc-font-display: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+    --sc-font-text: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+    --sc-font-mono: "JetBrains Mono", ui-monospace, monospace;
+    --ground-l: #1a1922;     /* the manual side, a step lighter and flatter */
+    --ground-r: #0d0c12;     /* Seda's side */
+    --split: 50%;            /* driven by script: the divider position */
+    --phone: clamp(150px, 17vw, 268px);
+    color-scheme: dark;
+  }
+  html { background: var(--ground-r); }
+  body { background: transparent; color: var(--sc-ink); }
+
+  /* the two grounds, fixed, meeting at the divider */
+  .ground { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  .ground::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--split); background: var(--ground-l); }
+
+  /* ---------- the divider: chrome, labels, tally ---------- */
+  .divider { position: fixed; top: 0; bottom: 0; left: var(--split); width: 0; z-index: 60; pointer-events: none; }
+  .divider__line { position: absolute; top: 0; bottom: 0; left: -0.5px; width: 1px; background: color-mix(in oklab, var(--sc-ink) 18%, transparent); }
+  .divider__head { position: absolute; top: max(18px, env(safe-area-inset-top, 0px)); left: 0; translate: -50% 0; display: flex; align-items: center; gap: 14px; pointer-events: auto; white-space: nowrap; }
+  .mark { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: -0.02em; font-size: 17px; background: var(--ground-r); padding: 6px 12px 6px 6px; border-radius: 999px; box-shadow: 0 0 0 1px color-mix(in oklab, var(--sc-ink) 14%, transparent); color: var(--sc-ink); text-decoration: none; }
+  .mark i { width: 26px; height: 26px; border-radius: 8px; background: #5b47e0; display: grid; place-items: center; }
+  .side-label { font-size: 13px; color: var(--sc-ink-soft); font-weight: 500; }
+  .tally { position: absolute; top: 50%; left: 0; translate: -50% -50%; display: grid; grid-template-columns: 1fr 1px 1fr; align-items: center; background: var(--sc-surface); border-radius: 16px; padding: 10px 4px; box-shadow: 0 0 0 1px color-mix(in oklab, var(--sc-ink) 12%, transparent), 0 12px 32px rgba(0,0,0,.35); opacity: var(--tally-o, 0); transition: opacity 200ms var(--sc-ease-out); }
+  .tally > div { padding: 0 14px; text-align: center; min-width: 74px; }
+  .tally hr { width: 1px; height: 44px; border: 0; background: color-mix(in oklab, var(--sc-ink) 14%, transparent); margin: 0; }
+  .tally b { display: block; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.05; }
+  .tally .r b { color: var(--sc-accent); }
+  .tally span { font-size: 11px; color: var(--sc-ink-soft); letter-spacing: 0.04em; }
+  .ticks { position: absolute; top: 18%; bottom: 18%; left: -3px; width: 6px; }
+  .ticks i { position: absolute; left: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--sc-accent); opacity: 0; transform: scale(.6); transition: opacity 240ms var(--sc-ease-out), transform 240ms var(--sc-ease-out); }
+  .ticks i.on { opacity: 1; transform: none; }
+
+  main { position: relative; z-index: 1; }
+
+  /* ---------- the split layout every act uses ---------- */
+  .split { display: grid; grid-template-columns: var(--split) calc(100% - var(--split)); height: 100%; }
+  .half { position: relative; display: flex; flex-direction: column; justify-content: center; gap: var(--sc-5); padding: var(--sc-9) clamp(1.25rem, 4.5vw, 4.5rem); min-width: 0; overflow: hidden; }
+  .half--l { color: var(--sc-ink); }
+  .half--l .sc-body, .half--l .muted { color: #b2aec3; }
+  .h-side { font-size: var(--sc-t-2xl); font-weight: 600; letter-spacing: var(--sc-track-snug); line-height: var(--sc-leading-tight); max-width: 15ch; text-wrap: balance; margin: 0; }
+  .h-side--muted { color: #d8d5e3; }
+  .muted { color: var(--sc-ink-soft); }
+  .eyebrow { font-size: var(--sc-t-sm); font-weight: 500; color: var(--sc-ink-soft); margin: 0; }
+  .accent { color: var(--sc-accent); }
+
+  /* ---------- phones (real Caspia screens) ---------- */
+  .phone { position: relative; width: var(--phone); aspect-ratio: 390 / 844; border-radius: calc(var(--phone) * 0.14); padding: calc(var(--phone) * 0.03); background: #24222d; box-shadow: 0 0 0 1px color-mix(in oklab, var(--sc-ink) 10%, transparent), 0 30px 60px rgba(0,0,0,.45); flex: none; }
+  .phone__screen { position: relative; width: 100%; height: 100%; border-radius: calc(var(--phone) * 0.115); overflow: hidden; background: #eef2f0; }
+  .phone__screen img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 180ms var(--sc-ease-out); max-width: none; }
+  .phone__screen img.on { opacity: 1; }
+  .tap { position: absolute; width: 18%; aspect-ratio: 1; border-radius: 50%; translate: -50% -50%; border: 2px solid #5b47e0; background: rgba(91, 71, 224, .22); opacity: 0; transform: scale(.4); transition: opacity 160ms, transform 260ms var(--sc-ease-out); pointer-events: none; z-index: 2; }
+  .tap.on { opacity: 1; transform: none; }
+  .bubble { position: absolute; left: 8%; right: 8%; top: 44%; z-index: 3; background: #5b47e0; color: #fff; font-size: calc(var(--phone) * 0.052); font-weight: 600; padding: 0.8em 1em; border-radius: 1.1em 1.1em 0.3em 1.1em; box-shadow: 0 12px 28px rgba(40, 20, 120, .45); opacity: 0; transform: translateY(8px); transition: opacity 200ms var(--sc-ease-out), transform 260ms var(--sc-ease-out); }
+  .bubble.on { opacity: 1; transform: none; }
+  .bubble small { display: block; font-weight: 500; opacity: .8; font-size: .78em; margin-bottom: .2em; }
+  .stamp { position: absolute; left: 50%; top: 9%; translate: -50% 0; z-index: 3; background: var(--sc-accent); color: var(--sc-accent-ink); font-weight: 700; font-size: calc(var(--phone) * 0.05); padding: .45em .9em; border-radius: 999px; opacity: 0; transform: scale(.92); transition: opacity 200ms, transform 260ms var(--sc-ease-out); white-space: nowrap; }
+  .stamp.on { opacity: 1; transform: none; }
+
+  /* ---------- 1 · hero: layered planes ---------- */
+  .hero .half { justify-content: flex-start; padding-top: clamp(5.5rem, 12vh, 8rem); }
+  .scene { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; }
+  .plane { position: absolute; will-change: transform; }
+  .plane--back { inset: 4% 10%; border-radius: 28px; overflow: hidden; opacity: .22; filter: blur(14px) saturate(.8); }
+  .plane--back img { width: 100%; height: 100%; object-fit: cover; max-width: none; }
+  .plane--fore { display: flex; flex-direction: column; gap: 10px; z-index: 4; }
+  .chip { font-family: var(--sc-font-mono); font-size: 12px; padding: 7px 11px; border-radius: 10px; background: color-mix(in oklab, var(--sc-surface) 88%, transparent); box-shadow: 0 0 0 1px color-mix(in oklab, var(--sc-ink) 12%, transparent), 0 10px 24px rgba(0,0,0,.35); white-space: nowrap; color: var(--sc-ink); backdrop-filter: blur(6px); }
+  .chip b { color: var(--sc-accent); font-weight: 500; }
+  .half--l .chip b { color: #d8d5e3; }
+  .hero h1, .hero .h-side { font-size: var(--sc-t-2xl); }
+  .hero .lead { font-size: var(--sc-t-base); max-width: 36ch; color: var(--sc-ink-soft); margin: 0; line-height: var(--sc-leading-body); }
+
+  /* ---------- 2 · the race ---------- */
+  .race .half { align-items: center; justify-content: flex-start; text-align: center; padding-block: clamp(4rem, 8vh, 4.5rem) 0; gap: var(--sc-4); }
+  .race .phone { --phone: clamp(150px, min(20vw, 26vh), 280px); }
+  .caption { min-height: 3.2em; max-width: 30ch; font-size: var(--sc-t-sm); line-height: 1.45; color: var(--sc-ink-soft); text-wrap: balance; }
+  .caption strong { color: var(--sc-ink); font-weight: 600; }
+  .race-head { font-size: var(--sc-t-xl); font-weight: 600; letter-spacing: var(--sc-track-snug); margin: 0; }
+  .peak-line { position: absolute; left: 50%; bottom: clamp(1.25rem, 4vh, 2.5rem); translate: -50% 0; width: min(92%, 34ch); text-align: center; font-size: var(--sc-t-lg); font-weight: 600; line-height: 1.3; text-wrap: balance; opacity: 0; transition: opacity 260ms var(--sc-ease-out); color: var(--sc-ink); background: var(--sc-surface); padding: 12px 20px; border-radius: 16px; box-shadow: 0 0 0 1px color-mix(in oklab, var(--sc-accent) 30%, transparent); z-index: 70; }
+  .peak-line.on { opacity: 1; }
+
+  /* ---------- 3-5 · flow acts ---------- */
+  .flow .half { justify-content: flex-start; padding-block: var(--sc-section); gap: var(--sc-5); }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; max-width: 34ch; counter-reset: s; }
+  .steps li { display: grid; grid-template-columns: 2.2rem 1fr; gap: 6px; padding: 12px 0; border-top: 1px solid color-mix(in oklab, var(--sc-ink) 10%, transparent); color: #d8d5e3; }
+  .steps li::before { counter-increment: s; content: counter(s); font-family: var(--sc-font-mono); font-size: 12px; color: var(--sc-ink-soft); padding-top: 3px; }
+  .trace { width: 100%; max-width: 34rem; background: var(--sc-surface); border-radius: 18px; padding: 8px 18px; box-shadow: 0 0 0 1px color-mix(in oklab, var(--sc-ink) 10%, transparent); font-family: var(--sc-font-mono); font-size: 12.5px; }
+  .trace__row { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) auto; gap: 12px; padding: 10px 0; border-top: 1px solid color-mix(in oklab, var(--sc-ink) 8%, transparent); align-items: baseline; }
+  .trace__row:first-child { border-top: 0; }
+  .trace__row .t { color: var(--sc-ink-soft); }
+  .trace__row .k { display: block; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sc-ink-soft); margin-bottom: 2px; font-family: var(--sc-font-text); font-weight: 600; }
+  .trace__row .v { color: var(--sc-ink); overflow-wrap: anywhere; }
+  .trace__row .ms { color: var(--sc-accent); white-space: nowrap; }
+  .trace__row.sig .v { color: var(--sc-accent); }
+  .studio { width: 100%; max-width: 34rem; display: grid; gap: 12px; }
+  .prompt { font-size: var(--sc-t-lg); line-height: 1.45; padding: 18px 20px; border-radius: 18px; background: color-mix(in oklab, #5b47e0 22%, var(--sc-surface)); box-shadow: 0 0 0 1px color-mix(in oklab, var(--sc-accent) 35%, transparent); margin: 0; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; background: var(--sc-surface); border-radius: 18px; padding: 16px 20px; margin: 0; font-size: var(--sc-t-sm); }
+  .kv dt { color: var(--sc-ink-soft); }
+  .kv dd { margin: 0; }
+  .tests { display: flex; align-items: center; gap: 10px; font-size: var(--sc-t-sm); color: var(--sc-ink-soft); }
+  .pass { background: color-mix(in oklab, #3ecf8e 18%, var(--sc-surface)); color: #8ee6b9; padding: 4px 10px; border-radius: 999px; font-weight: 600; font-size: 12.5px; }
+  .pairs { list-style: none; margin: 0; padding: 0; display: grid; max-width: 36ch; }
+  .pairs li { padding: 16px 0; border-top: 1px solid color-mix(in oklab, var(--sc-ink) 10%, transparent); font-size: var(--sc-t-lg); line-height: 1.35; }
+  .half--r .pairs li { color: var(--sc-ink); }
+  .half--l .pairs li { color: #c9c5d6; }
+
+  /* ---------- 6 · close: the collapse ---------- */
+  .close .half--l { opacity: var(--l-o, 1); }
+  .close .half--r { justify-content: center; }
+  .close__inner { display: grid; gap: var(--sc-5); max-width: 40rem; }
+  .close .sc-body { color: #c3bfd3; }
+  .close h2 { font-size: var(--sc-t-3xl); font-weight: 600; letter-spacing: var(--sc-track-tight); line-height: var(--sc-leading-tight); margin: 0; text-wrap: balance; }
+  .cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sc-5); }
+  .cta { display: inline-flex; align-items: center; gap: 10px; background: var(--sc-accent); color: var(--sc-accent-ink); font-weight: 650; padding: 15px 22px; border-radius: 14px; text-decoration: none; white-space: nowrap; transition: transform 140ms var(--sc-ease-out), filter 140ms; }
+  .cta:hover { filter: brightness(1.06); }
+  .cta:active { transform: scale(.98); }
+  .cta:focus-visible, .mark:focus-visible { outline: 2.5px solid var(--sc-accent); outline-offset: 3px; }
+  .mail { font-family: var(--sc-font-mono); font-size: 14px; color: var(--sc-ink-soft); user-select: all; }
+  .foot { position: absolute; left: 0; right: 0; bottom: max(16px, env(safe-area-inset-bottom, 0px)); padding-inline: clamp(1.25rem, 4.5vw, 4.5rem); display: flex; justify-content: space-between; gap: 16px; font-size: 12px; color: var(--sc-ink-soft); flex-wrap: wrap; }
+
+  /* ---------- phone art direction ---------- */
+  @media (max-width: 760px) {
+    :root { --phone: 38vw; }
+    .half { padding: 4.5rem 14px 2rem; gap: var(--sc-4); }
+    .hero h1, .hero .h-side, .h-side { font-size: var(--sc-t-lg); max-width: none; }
+    .hero .lead { font-size: 13px; }
+    .plane--fore { display: none; }
+    .race .half { padding-top: 8.5rem; }
+    .race .phone { --phone: 40vw; }
+    .race-head { font-size: 15px; }
+    .caption { font-size: 12px; min-height: 4.4em; }
+    .peak-line { font-size: 15px; bottom: 14px; }
+    .tally { top: 64px; translate: -50% 0; padding: 6px 0; }
+    .divider__line, .ticks { opacity: var(--line-o, 1); transition: opacity 200ms; }
+    .tally > div { min-width: 52px; padding: 0 8px; }
+    .tally b { font-size: 22px; }
+    .divider__head { gap: 8px; }
+    .side-label { font-size: 11.5px; }
+    .mark { font-size: 14px; padding: 4px 10px 4px 4px; }
+    .mark i { width: 22px; height: 22px; }
+    /* reading acts stack on a phone: one column, both sides labelled */
+    .flow .split { grid-template-columns: 1fr; }
+    .flow .half { padding-block: var(--sc-7); }
+    .flow .half--l { background: var(--ground-l); }
+    .flow .half--r { background: var(--ground-r); }
+    .close .sc-body { color: #c3bfd3; }
+  .close h2 { font-size: var(--sc-t-2xl); }
+    .foot { position: static; padding: var(--sc-6) 0 0; }
+  }
+  @media (max-width: 760px) { .ground::before { width: var(--split); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .close .split { grid-template-columns: 0 100%; }
+    .close [data-sc-stage] { background: var(--ground-r); }
+    .close .half--l { display: none; }
+    .closed .divider__line, .closed .side-label { opacity: 0; }
+    .closed .ground::before { width: 0; }
+    .phone__screen img, .tap, .bubble, .stamp, .peak-line, .tally, .ticks i { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="ground" aria-hidden="true"></div>
+<div class="sc-grain" aria-hidden="true"></div>
+
+<!-- The divider is the chrome: it labels both sides and keeps the score. -->
+<header class="divider">
+  <div class="divider__line"></div>
+  <div class="divider__head">
+    <span class="side-label">By hand</span>
+    <a class="mark" href="#top" aria-label="Seda, back to top"><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg></i>Seda</a>
+    <span class="side-label">With Seda</span>
+  </div>
+  <div class="ticks" aria-hidden="true"></div>
+  <div class="tally" role="status" aria-live="off" aria-label="Taps so far">
+    <div class="l"><b id="tally-l">0</b><span>taps</span></div>
+    <hr>
+    <div class="r"><b id="tally-r">0</b><span>taps</span></div>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- 1 · CURIOSITY: pinned hero, layered planes on both sides -->
+  <section class="hero" data-sc-act="pin" data-sc-span="1.5" data-split-act="hero">
+    <div data-sc-stage>
+      <div class="split">
+        <div class="half half--l">
+          <div data-sc-cue="0 0.9 0" class="sc-stack" style="display:grid;gap:var(--sc-4)">
+            <p class="eyebrow">Paying a traffic fine in a bank app</p>
+            <h2 class="h-side h-side--muted">Five taps, if you know where to look.</h2>
+            <p class="lead">Payments, then the fine under Due now, then Pay, Confirm and the fingerprint.</p>
+          </div>
+          <div class="scene">
+            <div class="plane plane--back" data-sc-parallax="-1.2" aria-hidden="true"><img src="assets/m1-payments.webp" alt=""></div>
+            <div class="phone" data-sc-parallax="-0.5"><div class="phone__screen"><img class="on" src="assets/m0-home.webp" alt="Caspia Bank home screen"></div></div>
+            <div class="plane plane--fore" data-sc-parallax="0.9" style="left:2%;bottom:14%" aria-hidden="true">
+              <span class="chip"><b>tap 1</b> Payments</span>
+              <span class="chip"><b>tap 2</b> Traffic fines</span>
+              <span class="chip"><b>tap 3</b> Pay</span>
+            </div>
+          </div>
+        </div>
+        <div class="half half--r">
+          <div data-sc-cue="0 0.9 0" class="sc-stack" style="display:grid;gap:var(--sc-4)">
+            <p class="eyebrow accent">With Seda in the same app</p>
+            <h1 class="h-side">Your customer says it. The app does the steps.</h1>
+            <p class="lead">“Pay my traffic fine.” Seda opens the right screen, the bank checks the amount, and nothing is paid until the fingerprint.</p>
+          </div>
+          <div class="scene">
+            <div class="plane plane--back" data-sc-parallax="-1.2" aria-hidden="true"><img src="assets/v2-summary.webp" alt=""></div>
+            <div class="phone" data-sc-parallax="-0.5"><div class="phone__screen"><img class="on" src="assets/v0-home.webp" alt="The same Caspia home screen"><div class="bubble on"><small>Customer</small>“Pay my traffic fine”</div></div></div>
+            <div class="plane plane--fore" data-sc-parallax="0.9" style="right:2%;bottom:14%;align-items:flex-end" aria-hidden="true">
+              <span class="chip">lookup_bill <b>600 ms</b></span>
+              <span class="chip">prepare <b>351 ms</b></span>
+              <span class="chip">fingerprint <b>signed</b></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · AMAZEMENT (peak): the race. Longest span on the page. Scroll drives both phones. -->
+  <section class="race" data-sc-act="pin" data-sc-span="3.4" data-split-act="race" aria-label="The same payment, side by side">
+    <div data-sc-stage>
+      <div class="split">
+        <div class="half half--l">
+          <p class="race-head">By hand</p>
+          <div class="phone" id="phone-l">
+            <div class="phone__screen">
+              <img src="assets/m0-home.webp" alt="" class="on"><img src="assets/m1-payments.webp" alt=""><img src="assets/m3-fines.webp" alt=""><img src="assets/m4-review.webp" alt=""><img src="assets/m5-fingerprint.webp" alt=""><img src="assets/m6-receipt.webp" alt="">
+              <span class="tap"></span>
+            </div>
+          </div>
+          <p class="caption" id="cap-l">The customer opens the app on Home.</p>
+        </div>
+        <div class="half half--r">
+          <p class="race-head accent">By voice</p>
+          <div class="phone" id="phone-r">
+            <div class="phone__screen">
+              <img src="assets/v0-home.webp" alt="" class="on"><img src="assets/v1-fines.webp" alt=""><img src="assets/v2-summary.webp" alt=""><img src="assets/m5-fingerprint.webp" alt=""><img src="assets/m6-receipt.webp" alt="">
+              <span class="tap"></span>
+              <div class="bubble"><small>Customer</small>“Pay my traffic fine”</div>
+              <span class="stamp">Paid in 2 taps</span>
+            </div>
+          </div>
+          <p class="caption" id="cap-r">The customer opens the app on Home.</p>
+        </div>
+      </div>
+      <p class="peak-line" id="peak">Paid by voice while the manual path is still on the Traffic fines screen.</p>
+    </div>
+  </section>
+
+  <!-- 3 · CLARITY: flow + reveal. Real trace recorded 8 Nov 2026. -->
+  <section class="flow" data-split-act="trace">
+    <div class="split">
+      <div class="half half--l">
+        <div class="sc-stack" data-sc-in data-sc-stagger="60" style="display:grid;gap:var(--sc-5)">
+          <p class="eyebrow">By hand</p>
+          <h2 class="h-side h-side--muted">Four screens to remember.</h2>
+          <ol class="steps">
+            <li>Find Payments in the tab bar</li>
+            <li>Spot the fine under Due now</li>
+            <li>Check the amount and tap Pay</li>
+            <li>Review, Confirm, hold the sensor</li>
+          </ol>
+        </div>
+      </div>
+      <div class="half half--r">
+        <div class="sc-stack" data-sc-in data-sc-stagger="60" style="display:grid;gap:var(--sc-5)">
+          <p class="eyebrow accent">By voice</p>
+          <h2 class="h-side">Every step is on the record.</h2>
+          <p class="sc-body">The bank sees what the customer said, what Seda understood, each call to the bank and the fingerprint that signed the payment.</p>
+        </div>
+        <div class="trace" data-sc-reveal="up" data-sc-reveal-at="0.18 0.5" role="list" aria-label="Recorded trace of one voice payment">
+          <div class="trace__row" role="listitem"><span class="t">0.0 s</span><span class="v"><span class="k">Customer said</span>“Pay my traffic fine”</span><span></span></div>
+          <div class="trace__row" role="listitem"><span class="t">0.0 s</span><span class="v"><span class="k">Intent</span>Pay traffic fines · biller=fines</span><span></span></div>
+          <div class="trace__row" role="listitem"><span class="t">0.6 s</span><span class="v"><span class="k">Bank (MCP)</span>lookup_bill → debt 40 AZN</span><span class="ms">600 ms</span></div>
+          <div class="trace__row" role="listitem"><span class="t">1.9 s</span><span class="v"><span class="k">Bank (MCP)</span>prepare(bill, 40) → fee 0</span><span class="ms">351 ms</span></div>
+          <div class="trace__row" role="listitem"><span class="t">2.0 s</span><span class="v"><span class="k">Read aloud</span>Pay 40 AZN to Traffic fines?</span><span></span></div>
+          <div class="trace__row sig" role="listitem"><span class="t">7.7 s</span><span class="v"><span class="k">Fingerprint</span>Signs operation OPA2PW5RE</span><span></span></div>
+          <div class="trace__row" role="listitem"><span class="t">8.4 s</span><span class="v"><span class="k">Bank (MCP)</span>execute → completed</span><span class="ms">701 ms</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · CONTROL: flow + in. Real AI Studio run. -->
+  <section class="flow" data-split-act="studio">
+    <div class="split">
+      <div class="half half--l">
+        <div class="sc-stack" data-sc-in data-sc-stagger="60" style="display:grid;gap:var(--sc-5)">
+          <p class="eyebrow">Without a voice layer</p>
+          <h2 class="h-side h-side--muted">A new journey means new screens.</h2>
+          <p class="sc-body">Designing them, building them, releasing an app update, and teaching customers where the new button lives.</p>
+        </div>
+      </div>
+      <div class="half half--r">
+        <div class="studio" data-sc-in data-sc-stagger="70">
+          <p class="eyebrow accent">AI Studio in the Seda console</p>
+          <h2 class="h-side">One sentence from the bank.</h2>
+          <p class="prompt">“Add traffic fine payments by voice, max 100 AZN, only from the debit card, and remind users on Fridays if they have unpaid fines.”</p>
+          <dl class="kv">
+            <dt>Flow</dt><dd>Pay traffic fines</dd>
+            <dt>Limit</dt><dd>100 AZN per payment</dd>
+            <dt>Card</dt><dd>Caspia Debit only</dd>
+            <dt>Reminder</dt><dd>Fridays at 10:00 if unpaid</dd>
+            <dt>Confirmation</dt><dd>Fingerprint, always</dd>
+          </dl>
+          <p class="tests"><span class="pass">4 of 4 tests passed</span> Live after an admin approved it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · TRUST: kinetic headline + paired lists -->
+  <section class="flow" data-split-act="trust">
+    <div class="split">
+      <div class="half half--l">
+        <div class="sc-stack" data-sc-in data-sc-stagger="70" style="display:grid;gap:var(--sc-5)">
+          <h2 class="h-side h-side--muted">What a voice assistant must never do.</h2>
+          <ul class="pairs">
+            <li>Take an amount from a misheard word</li>
+            <li>Move money on its own</li>
+            <li>Guess an answer about fees or rates</li>
+            <li>Ask for a PIN or an SMS code</li>
+          </ul>
+        </div>
+      </div>
+      <div class="half half--r">
+        <div class="sc-stack" style="display:grid;gap:var(--sc-5)">
+          <h2 class="h-side" data-sc-in data-sc-kinetic="lines">What Seda does instead.</h2>
+          <ul class="pairs" data-sc-in data-sc-stagger="70">
+            <li>Amounts come from the bank’s data or a tap</li>
+            <li>The bank’s execute() needs the customer’s fingerprint</li>
+            <li>Answers only from the bank’s knowledge base</li>
+            <li>Never asks for secrets, and warns when someone else does</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 · RESOLVE: the divider is pushed off the left edge. Last element, holds. -->
+  <section class="close" data-sc-act="pin" data-sc-span="1.4" data-split-act="close">
+    <div data-sc-stage>
+      <div class="split">
+        <div class="half half--l" aria-hidden="true"></div>
+        <div class="half half--r">
+          <div class="close__inner">
+                        <h2 data-sc-cue="0 1 0 0">Seda plugs into your app through your own MCP server.</h2>
+            <p class="sc-body" data-sc-cue="0 1 0 0">Your bank keeps the data and executes every payment. Seda adds the voice layer, AI Studio and Live Traces on top.</p>
+            <div class="cta-row" data-sc-cue="0 1 0 0">
+              <a class="cta" href="console.html">Open the live console</a>
+              <span class="mail">pilot@seda.demo</span>
+            </div>
+          </div>
+          <footer class="foot"><span>Seda, built for the YUNEX Hackathon 2026</span><span>Caspia Bank is a fictional demo bank. All data is sample data.</span></footer>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="scrollcraft.js"></script>
+<script>ScrollCraft.mount(document.body);</script>
+<script>
+/* Signature move: the divider keeps score of the race, then the winning side pushes it off the page.
+   Page-owned script. Reads each act's scroll position; never touches the engine. */
+(function () {
+  const root = document.documentElement;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const race = document.querySelector('[data-split-act="race"]');
+  const close = document.querySelector('[data-split-act="close"]');
+  const hero = document.querySelector('[data-split-act="hero"]');
+  const L = document.querySelectorAll('#phone-l img');
+  const R = document.querySelectorAll('#phone-r img');
+  const tapL = document.querySelector('#phone-l .tap');
+  const tapR = document.querySelector('#phone-r .tap');
+  const bubble = document.querySelector('#phone-r .bubble');
+  const stamp = document.querySelector('#phone-r .stamp');
+  const capL = document.getElementById('cap-l');
+  const capR = document.getElementById('cap-r');
+  const peak = document.getElementById('peak');
+  const tl = document.getElementById('tally-l');
+  const tr = document.getElementById('tally-r');
+  const ticksBox = document.querySelector('.ticks');
+
+  // Manual path, measured in Caspia: 5 taps. [screen index, start, tap moment, tap x%, tap y%, caption]
+  const left = [
+    [0, 0.00, 0.08, 30, 96, 'Tap 1. Find <strong>Payments</strong> in the tab bar.'],
+    [1, 0.10, 0.27, 50, 56, 'Tap 2. Spot the fine under <strong>Due now</strong>.'],
+    [2, 0.30, 0.49, 50, 92, 'Tap 3. Check the 40 AZN and tap <strong>Pay</strong>.'],
+    [3, 0.52, 0.67, 50, 86, 'Tap 4. Review and tap <strong>Confirm</strong>.'],
+    [4, 0.70, 0.80, 50, 81, 'Tap 5. Hold the <strong>fingerprint</strong> sensor.'],
+    [5, 0.86, null, 0, 0, '<strong>Paid.</strong> Five taps across four screens.'],
+  ];
+  // Voice path, recorded with Seda: one sentence, 2 taps.
+  const right = [
+    [0, 0.00, null, 0, 0, 'The customer says <strong>“Pay my traffic fine.”</strong>'],
+    [1, 0.12, null, 0, 0, 'Seda opens Traffic fines. The bank returns the <strong>40 AZN</strong> debt.'],
+    [2, 0.24, 0.32, 50, 86, 'The summary is read aloud. Tap 1: <strong>Confirm</strong>.'],
+    [3, 0.34, 0.39, 50, 81, 'Tap 2: hold the <strong>fingerprint</strong> sensor.'],
+    [4, 0.42, null, 0, 0, '<strong>Paid.</strong> One sentence and two taps.'],
+  ];
+  // stamp one tick on the divider per tap, either side
+  const allTaps = [...left.filter((s) => s[2] != null).map((s) => s[2]), ...right.filter((s) => s[2] != null).map((s) => s[2])].sort();
+  const ticks = allTaps.map((t, i) => { const el = document.createElement('i'); el.style.top = (t * 100) + '%'; ticksBox.appendChild(el); return [t, el]; });
+
+  const progress = (el) => {
+    const r = el.getBoundingClientRect();
+    const travel = Math.max(el.offsetHeight - innerHeight, 1);
+    return Math.min(1, Math.max(0, -r.top / travel));
+  };
+  const visible = (el) => { const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; };
+
+  function drive(steps, p, imgs, tap, cap) {
+    let cur = steps[0];
+    for (const s of steps) if (p >= s[1]) cur = s;
+    imgs.forEach((im, i) => im.classList.toggle('on', i === cur[0]));
+    const t = cur[2];
+    const showTap = t != null && p >= t - 0.035 && p <= t + 0.02;
+    tap.classList.toggle('on', showTap);
+    if (t != null) { tap.style.left = cur[3] + '%'; tap.style.top = cur[4] + '%'; }
+    if (cap.dataset.s !== String(cur[0])) { cap.innerHTML = cur[5]; cap.dataset.s = cur[0]; }
+    return steps.filter((s) => s[2] != null && p >= s[2]).length;
+  }
+
+  let last = -1;
+  function frame() {
+    const p = reduce ? 1 : progress(race);
+    if (p !== last) {
+      last = p;
+      const nl = drive(left, p, L, tapL, capL);
+      const nr = drive(right, p, R, tapR, capR);
+      tl.textContent = nl;
+      tr.textContent = nr;
+      bubble.classList.toggle('on', p < 0.14);
+      stamp.classList.toggle('on', p >= 0.42);
+      peak.classList.toggle('on', p >= 0.44 && p < 0.86);
+      ticks.forEach(([t, el]) => el.classList.toggle('on', p >= t));
+    }
+    // the tally shows while the race is on screen
+    root.style.setProperty('--tally-o', visible(race) && !visible(hero) ? 1 : 0);
+    // on a phone the reading acts stack, so the line steps back while they pass
+    const mid = innerHeight / 2, inside = (el) => { const r = el.getBoundingClientRect(); return r.top < mid && r.bottom > mid; };
+    root.style.setProperty('--line-o', (inside(hero) || inside(race) || inside(close)) ? 1 : 0);
+    // the collapse: the divider travels to the left edge across the closing act
+    if (reduce) {
+      // motion off: no travel. The closing act is simply laid out at its final state.
+      const inClose = close.getBoundingClientRect().top < innerHeight / 2;
+      root.classList.toggle('closed', inClose);
+      requestAnimationFrame(frame);
+      return;
+    }
+    const c = progress(close);
+    const ease = c < 0.5 ? 4 * c * c * c : 1 - Math.pow(-2 * c + 2, 3) / 2;
+    const split = (reduce ? c === 1 : visible(close)) ? 50 - 50 * Math.min(1, ease * 1.15) : 50;
+    root.style.setProperty('--split', split.toFixed(2) + '%');
+    close.style.setProperty('--l-o', (1 - Math.min(1, c * 2)).toFixed(3));
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+{
+  "prompt": "Add traffic fine payments by voice, max 100 AZN, only from the debit card, and remind users on Fridays if they have unpaid fines.",
+  "studio": {
+    "understood": "New capability\nPay traffic fines by voice\nBank service\nTraffic fines (Car plate)\nLimit\nMax 100 AZN per payment\nCard\nCaspia Debit only\nReminder\nFridays at 10:00 if there is an unpaid traffic fines bill",
+    "tests": [
+      "“Pay my traffic fine” | matches “Pay traffic fines” | Pass",
+      "“Please pay the traffic fines” | matches “Pay traffic fines” | Pass",
+      "“Pay 150 manat traffic fines” | blocked by limit | Pass",
+      "“What is my balance?” | still matches “Check balance” | Pass"
+    ]
+  },
+  "trace": [
+    {
+      "dt": "0.0",
+      "type": "voice",
+      "text": "“Pay my traffic fine”",
+      "data": "",
+      "ms": null
+    },
+    {
+      "dt": "0.0",
+      "type": "intent",
+      "text": "Pay traffic fines",
+      "data": "score 12 · biller=fines",
+      "ms": null
+    },
+    {
+      "dt": "0.0",
+      "type": "navigate",
+      "text": "/payments/fines",
+      "data": "",
+      "ms": null
+    },
+    {
+      "dt": "0.6",
+      "type": "mcp",
+      "text": "lookup_bill(fines, 10-LH-494)",
+      "data": "→ debt 40",
+      "ms": 600
+    },
+    {
+      "dt": "1.9",
+      "type": "mcp",
+      "text": "prepare(bill, 40)",
+      "data": "→ OPA2PW5RE · fee 0",
+      "ms": 351
+    },
+    {
+      "dt": "2.0",
+      "type": "summary",
+      "text": "Pay 40 AZN to Traffic fines?",
+      "data": "",
+      "ms": null
+    },
+    {
+      "dt": "7.7",
+      "type": "fingerprint",
+      "text": "Verified with fingerprint · signs operation OPA2PW5RE",
+      "data": "",
+      "ms": null
+    },
+    {
+      "dt": "8.4",
+      "type": "mcp",
+      "text": "execute(OPA2PW5RE, proof)",
+      "data": "→ completed · receipt R9VH9Z0C",
+      "ms": 701
+    },
+    {
+      "dt": "8.4",
+      "type": "result",
+      "text": "Done. Traffic fines · 40.00 AZN.",
+      "data": "",
+      "ms": null
+    }
+  ]
+}

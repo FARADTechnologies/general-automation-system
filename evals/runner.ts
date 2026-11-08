@@ -60,6 +60,7 @@ function displayMatches(view: { title: string; display: { key: string; value: st
     case 'subscription_cancelled': return norm(d.merchant) === norm(e.merchant);
     case 'recurring_transfer': return norm(d.payee_name) === norm(e.to) && amt() && norm(d.frequency) === norm(e.frequency);
     case 'payment_request': return norm(d.payee_name).includes(norm(e.from)) && amt();
+    case 'invest_order': return String(d.instrument || '').includes(String(e.symbol)) && amt();
     default: return false;
   }
 }

@@ -21,6 +21,8 @@ export interface Ledger {
   };
   risk_flags: string[];
   guard_holds: number;
+  /** The agent's last clarifying question in this task, so a plain "yes" can be read against it. */
+  last_question?: string;
 }
 
 export function newLedger(goal: string): Ledger {

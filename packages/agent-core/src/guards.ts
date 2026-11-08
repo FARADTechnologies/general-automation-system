@@ -3,7 +3,7 @@
 // That residual risk is handled by asking on ambiguity and by the bank confirmation screen.
 import { Ajv, type ValidateFunction } from 'ajv';
 import type { Ledger } from './ledger.ts';
-import { intentStated, queryFromUser } from './evidence.ts';
+import { intentStated, queryFromUser, isAffirmation } from './evidence.ts';
 
 export interface ToolMeta {
   name: string;
@@ -54,9 +54,17 @@ export function guardToolCall(
 
   if (meta.kind !== 'prepare') return { ok: true };
 
-  // 4) risk rule: a state change needs the user's own request for it in this task
-  if (!intentStated(meta.intentTerms, ledger.evidence.user_texts)) {
-    return { ok: false, code: 'INTENT_NOT_STATED', reason: `The user did not ask for ${meta.capability} in this task. Do not take actions the user did not request.` };
+  // 4) risk rule: a state change needs the user's own request for it in this task. Accepted as:
+  //    an intent word in the user's words (typos tolerated); or a plain "yes" to the agent's own
+  //    question that named the action; or a payee and an amount that both come from the user's
+  //    words ("To Nigar, 70 manat"). Payee and amount provenance are still checked below.
+  const texts = ledger.evidence.user_texts;
+  const lastUser = texts[texts.length - 1] || '';
+  const byWords = intentStated(meta.intentTerms, texts);
+  const byYes = isAffirmation(lastUser) && !!ledger.last_question && intentStated(meta.intentTerms, [ledger.last_question]);
+  const byArgs = impliedByUserArgs(call.input, meta, ledger);
+  if (!byWords && !byYes && !byArgs) {
+    return { ok: false, code: 'INTENT_NOT_STATED', reason: `The user's words in this task do not ask for ${meta.capability}. Do not take actions the user did not request. If you believe they did, ask one short yes/no question naming the action.` };
   }
 
   // 5) provenance of every critical argument
@@ -91,4 +99,23 @@ export function guardToolCall(
     return { ok: false, code: 'CURRENCY_NOT_STATED', reason: `The user did not mention ${ccy}.` };
   }
   return { ok: true };
+}
+
+/** A payee (token looked up with the user's words, or typed by the user) and an amount the user stated. */
+function impliedByUserArgs(input: Record<string, unknown>, meta: ToolMeta, ledger: Ledger): boolean {
+  let amount = false, payee = false;
+  for (const [arg, spec] of Object.entries(meta.criticalArgs)) {
+    const v = input[arg];
+    if (v === undefined) continue;
+    if (spec.token) {
+      const vals = Array.isArray(v) ? v : [v];
+      payee = vals.length > 0 && vals.every((one) => {
+        const rec = ledger.evidence.tokens[String(one)];
+        return !!rec && ((rec.provenance.startsWith('resolved_') && queryFromUser(rec.query || '', ledger.evidence.user_texts)) || rec.provenance === 'ingress_token');
+      });
+    } else if (typeof v === 'number') {
+      amount = ledger.evidence.amounts.some((a) => Math.abs(a - v) < 0.005);
+    }
+  }
+  return amount && payee;
 }

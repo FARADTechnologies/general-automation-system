@@ -157,7 +157,7 @@ export async function runTurn(
       state.messages.push({ role: 'assistant', content: lint.ok ? msg.content : [{ type: 'text', text: SAFE_ANSWER }] } as MessageParam);
       res.text = finalText;
       // a question with nothing executed in this turn means we are waiting for the user's answer
-      if (lint.ok && /\?/.test(finalText) && res.confirmations.length === 0) { ledger.pending = { type: 'clarification', detail: finalText.slice(0, 160) }; res.outcome = 'clarification'; }
+      if (lint.ok && /\?/.test(finalText) && res.confirmations.length === 0) { ledger.pending = { type: 'clarification', detail: finalText.slice(0, 160) }; ledger.last_question = finalText.slice(0, 400); res.outcome = 'clarification'; }
       break;
     }
 

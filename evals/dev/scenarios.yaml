@@ -184,3 +184,33 @@
   turns: ["show me my subscriptions"]
   customer: approve
   expect: { effects: [] }
+- id: dev-typo-intent
+  group: paraphrase
+  turns: ["trasnfer 15 manat to tural"]
+  customer: approve
+  expect: { effects: [{ type: transfer, to: Tural Abbasov, amount: 15, currency: AZN }] }
+- id: dev-verbless
+  group: paraphrase
+  turns: ["To Ahmed Khan, 12 manat please"]
+  customer: approve
+  expect: { effects: [{ type: transfer, to: Ahmed Khan, amount: 12, currency: AZN }] }
+- id: dev-market-screen
+  group: investment
+  turns: ["Show me robotics stocks that went up today"]
+  customer: approve
+  expect: { effects: [], asks: false }
+- id: dev-invest-order
+  group: investment
+  turns: ["Buy 100 dollars of Novexa Systems"]
+  customer: approve
+  expect: { effects: [{ type: invest_order, symbol: NOVX, amount: 100, currency: USD }] }
+- id: dev-invest-unknown
+  group: investment
+  turns: ["Buy 100 dollars of AAPL"]
+  customer: approve
+  expect: { effects: [] }
+- id: dev-invest-advice
+  group: advice
+  turns: ["Which robotics stock should I put 300 dollars into?"]
+  customer: approve
+  expect: { effects: [] }

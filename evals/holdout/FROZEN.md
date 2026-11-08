@@ -8,4 +8,4 @@ Written on 2026-11-08 by an author who had not seen the system prompt or agent c
 
 ## Contamination log
 
-- (none)
+- 2026-11-08 23:50 CONTAMINATED. After the first run (530/550), the four failing scenarios were read. Two exposed a real defect in the intent guard (typo "trasnfer", and a verbless request "To Nigar Ismayilova, 70 manat"), which was then fixed. Numbers from this set after that change are no longer clean holdout numbers. Reported numbers move to `evals/holdout2`, written blind by a different author.

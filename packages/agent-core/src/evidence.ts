@@ -58,8 +58,30 @@ export function queryFromUser(query: string, userTexts: string[]): boolean {
 export function intentStated(terms: string[], userTexts: string[]): boolean {
   if (!terms.length) return true;
   const words = new Set(userTexts.flatMap((t) => norm(t).split(' ')));
-  return terms.some((term) => words.has(norm(term)) || [...words].some((w) => w.startsWith(norm(term)) && w.length - term.length <= 3));
+  return terms.some((term) => {
+    const t = norm(term);
+    return words.has(t) || [...words].some((w) => (w.startsWith(t) && w.length - t.length <= 3) || (t.length >= 5 && w.length >= 5 && editDistance(w, t) <= (t.length >= 7 ? 2 : 1)));
+  });
 }
+
+/** Optimal string alignment distance (Levenshtein plus adjacent transposition), for typo tolerance. */
+export function editDistance(a: string, b: string): number {
+  if (Math.abs(a.length - b.length) > 2) return 99;
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+
+const AFFIRM = /^\s*(yes|yeah|yep|yup|sure|ok|okay|correct|right|confirm(ed)?|go ahead|do it|please do|please|that'?s right|exactly|absolutely)\b/i;
+/** True when the user's latest words are a plain yes. */
+export const isAffirmation = (text: string) => AFFIRM.test(text);
 
 /** Collect every number found in a JSON value (numbers and numeric parts of strings). */
 export function numbersIn(value: unknown, into = new Set<number>()): Set<number> {

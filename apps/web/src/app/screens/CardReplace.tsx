@@ -1,5 +1,6 @@
 // /cards/:id/replace: order a replacement card and pick it up at a branch (card.replace.prepare, R2).
 import React from 'react';
+import '../../styles/card-replace.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MapPin } from 'lucide-react';
 import { hub, useField, useUi } from '../../runtime/hub.ts';

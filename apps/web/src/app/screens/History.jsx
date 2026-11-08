@@ -4,6 +4,7 @@ import { Search, ShoppingCart, Coffee, Car, ShoppingBag, Zap, Smartphone, HeartP
 import { useStore, money, fmtDate, fmtLongDate, last4 } from '../store/Store.jsx';
 import { CATEGORIES } from '../data/seed.js';
 import { Header, Li, Seg, Empty, Donut } from '../components/ui.jsx';
+import { SpendByCategory, ComparePeriods, TopExpenses, IncomeSources } from '../components/AnalyticsPanels.tsx';
 
 const ICONS = { groceries: ShoppingCart, dining: Coffee, transport: Car, shopping: ShoppingBag, utilities: Zap, mobile: Smartphone, health: HeartPulse, entertainment: Film, transfers: ArrowLeftRight, loans: Landmark, income: Wallet, cashback: Gift, exchange: Repeat };
 
@@ -126,7 +127,7 @@ export function TxDetail() {
       <div className="tiles">
         <button className="tile" onClick={() => toast('Receipt saved to Files (demo)')}><span className="q-ico"><Download size={18} /></span>Receipt</button>
         <button className="tile" onClick={() => toast('Share sheet opened (demo)')}><span className="q-ico"><Share2 size={18} /></span>Share</button>
-        <button className="tile" onClick={() => (t.category === 'transfers' ? nav('/transfers/card') : toast('Split request sent (demo)'))}><span className="q-ico">{t.category === 'transfers' ? <Repeat size={18} /> : <Split size={18} />}</span>{t.category === 'transfers' ? 'Repeat' : 'Split'}</button>
+        <button className="tile" onClick={() => (t.category === 'transfers' ? nav('/transfers/card') : nav('/split/' + t.id))}><span className="q-ico">{t.category === 'transfers' ? <Repeat size={18} /> : <Split size={18} />}</span>{t.category === 'transfers' ? 'Repeat' : 'Split'}</button>
         <button className="tile" onClick={() => toast('Dispute opened. We will contact you within 2 days.')}><span className="q-ico"><Flag size={18} /></span>Dispute</button>
       </div>
       <button className="btn block" onClick={() => { navigator.clipboard?.writeText(t.id).catch(() => {}); toast('Reference copied'); }}><Copy size={16} /> Copy reference</button>
@@ -187,6 +188,10 @@ export function Analytics() {
         <div className="block" style={{ gap: 4 }}><span className="eyebrow">Cashback earned</span><strong className="num pos" style={{ fontSize: 18 }}>+{money(cashback)}</strong></div>
         <div className="block" style={{ gap: 4 }}><span className="eyebrow">Daily average</span><strong className="num" style={{ fontSize: 18 }}>{money(total / period)}</strong></div>
       </div>
+      <SpendByCategory period={`${period}d`} />
+      <ComparePeriods period={`${period}d`} />
+      <TopExpenses period={`${period}d`} />
+      <IncomeSources period={`${period}d`} />
     </main>
   );
 }

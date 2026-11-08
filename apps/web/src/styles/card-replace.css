@@ -8,3 +8,9 @@
 .replace-branches { list-style: none; margin: 0; padding: 0; }
 .replace-branches .li { min-height: 68px; cursor: pointer; }
 .replace-branches input[type="radio"] { width: 22px; height: 22px; accent-color: var(--sea); flex: none; }
+.pick-chips { display: flex; flex-wrap: wrap; gap: 8px; border: 0; padding: 0; margin: 0; }
+.pick-chips legend { font-weight: 650; margin-bottom: 8px; padding: 0; width: 100%; }
+.pick-chip { position: relative; display: inline-flex; align-items: center; min-height: 48px; padding: 0 18px; border-radius: 999px; font-size: 16px; font-weight: 600; cursor: pointer; background: var(--surface); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+.pick-chip.on { background: var(--ink); color: #fff; box-shadow: none; }
+.pick-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.pick-chip:focus-within { outline: 3px solid var(--sea); outline-offset: 2px; }

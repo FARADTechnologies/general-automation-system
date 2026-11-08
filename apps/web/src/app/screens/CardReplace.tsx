@@ -29,11 +29,11 @@ export default function CardReplace() {
       {summary.status === 'loading' && <Loading />}
       {summary.status === 'error' && <ErrorState onRetry={summary.reload} />}
       {card && <div className="block"><strong>{card.name}</strong><span className="small muted num">{masked(card.last4)}</span></div>}
-      <fieldset className="field replace-reasons">
+      <fieldset className="field pick-chips">
         <legend>Why do you need a new card?</legend>
         {REASONS.map(([v, label]) => (
-          <label key={v} className={'chip big' + (reason.value === v ? ' on' : '')} data-nav-id={`card-replace-reason-${v}`}>
-            <input type="radio" name="replace-reason" value={v} checked={reason.value === v} onChange={() => reason.onChange(v)} className="sr-only" />{label}
+          <label key={v} className={'pick-chip' + (reason.value === v ? ' on' : '')} data-nav-id={`card-replace-reason-${v}`}>
+            <input type="radio" name="replace-reason" value={v} checked={reason.value === v} onChange={() => reason.onChange(v)} />{label}
           </label>
         ))}
       </fieldset>

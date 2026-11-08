@@ -13,6 +13,7 @@ export interface BridgeTool {
   criticalArgs: Record<string, { token?: string; provenance?: string[] }>;
   intentTerms: string[];
   tokenProvenance: Record<string, string>;
+  derived: boolean;
 }
 
 export type CallOutcome = { ok: true; data: any; text: string } | { ok: false; error: { code: string; message: string; retryable?: boolean }; text: string };
@@ -42,7 +43,7 @@ export class BridgeSession {
     const { tools } = await (await this.conn()).listTools();
     return tools.map((t) => {
       const m = (t._meta || {}) as Record<string, any>;
-      return { name: t.name, description: t.description || '', inputSchema: t.inputSchema as Record<string, unknown>, capability: m.capability || t.name, kind: m.kind, risk: m.risk, criticalArgs: m.critical_args || {}, intentTerms: m.intent_terms || [], tokenProvenance: m.token_provenance || {} };
+      return { name: t.name, description: t.description || '', inputSchema: t.inputSchema as Record<string, unknown>, capability: m.capability || t.name, kind: m.kind, risk: m.risk, criticalArgs: m.critical_args || {}, intentTerms: m.intent_terms || [], tokenProvenance: m.token_provenance || {}, derived: !!m.derived };
     });
   }
 
@@ -68,6 +69,10 @@ export class BridgeSession {
   /** Ingress tokenizer storage: raw card/phone numbers from the user go to the vault before the LLM. */
   tokenize(kind: 'pan' | 'phone', value: string, traceId: string): Promise<{ token: string; masked: string }> {
     return this.http('POST', '/agent/vault/ingress', { session: this.session, kind, value, trace_id: traceId });
+  }
+
+  handoff(record: Record<string, unknown>, traceId: string): Promise<{ ticket_id: string }> {
+    return this.http('POST', '/agent/handoff', { session: this.session, record, trace_id: traceId });
   }
 
   uiPlan(preparedId: string) { return this.http('GET', `/agent/prepared/${encodeURIComponent(preparedId)}/ui?session=${encodeURIComponent(this.session)}`); }

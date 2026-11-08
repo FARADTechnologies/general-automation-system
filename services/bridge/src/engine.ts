@@ -118,7 +118,7 @@ export class Engine {
         inputSchema: c.input_schema,
         _meta: {
           capability: c.id, kind: c.kind, risk: c.risk, critical_args: c.critical_args || {},
-          intent_terms: c.intent_terms || [],
+          intent_terms: c.intent_terms || [], derived: !!c.derived,
           // which output fields carry tokens, and with what provenance (for the agent's evidence set)
           token_provenance: Object.fromEntries(Object.entries(c.response?.fields || {}).flatMap(([k, f]) => (typeof f === 'object' && f.token ? [[k, f.token.provenance]] : []))),
         },
@@ -143,7 +143,7 @@ export class Engine {
 
     try {
       const cust_id = await this.d.core.resolveCust(session);
-      const scope: Scope = { input: args, ctx: { cust_id, session, idempotency_key: 'IK' + randomBytes(8).toString('hex') }, args: {}, meta: {}, lookup: {}, result: {} };
+      const scope: Scope = { input: args, ctx: { cust_id, session, idempotency_key: 'IK' + randomBytes(8).toString('hex') }, args: {}, meta: {}, masked: {}, lookup: {}, result: {} };
       const pipes = this.pipes(session);
 
       // 1) tokens -> internal values, with ownership, kind and provenance checks (I4, I7)
@@ -153,13 +153,19 @@ export class Engine {
       for (const [name, spec] of Object.entries(tokenArgs)) {
         const tok = args[name];
         if (tok === undefined || tok === null || tok === '') continue;
-        const e = this.d.vault.resolve(session, String(tok), spec.kind);
-        if (spec.allowed && ![...e.provenance].some((p) => spec.allowed!.includes(p))) {
-          audit('rejected', { code: 'PROVENANCE_REJECTED', arg: name, token_provenance: [...e.provenance] }, cap.id);
-          return fail('PROVENANCE_REJECTED', `The ${name} must come from ${spec.allowed.join(' or ')}.`);
+        const list = Array.isArray(tok) ? tok : [tok];
+        const entries = [];
+        for (const one of list) {
+          const e = this.d.vault.resolve(session, String(one), spec.kind);
+          if (spec.allowed && ![...e.provenance].some((p) => spec.allowed!.includes(p))) {
+            audit('rejected', { code: 'PROVENANCE_REJECTED', arg: name, token_provenance: [...e.provenance] }, cap.id);
+            return fail('PROVENANCE_REJECTED', `The ${name} must come from ${spec.allowed.join(' or ')}.`);
+          }
+          entries.push(e);
         }
-        (scope.args as Record<string, unknown>)[name] = e.value;
-        (scope.meta as Record<string, unknown>)[name] = e.meta;
+        (scope.args as Record<string, unknown>)[name] = Array.isArray(tok) ? entries.map((e) => e.value) : entries[0].value;
+        (scope.meta as Record<string, unknown>)[name] = Array.isArray(tok) ? entries.map((e) => e.meta) : entries[0].meta;
+        (scope.masked as Record<string, unknown>)[name] = entries.map((e) => e.label || e.masked).join(', ');
       }
 
       // 2) amounts: at most two decimals, positive
@@ -411,9 +417,10 @@ export class Engine {
       if (spec.where) list = list.filter((it) => Object.entries(spec.where!).every(([k, v]) => String(it[k]) === String(v)));
       const total = list.length;
       if (spec.limit) list = list.slice(0, spec.limit);
-      return { items: list.map(mapOne), total };
+      const extra = spec.extra ? (render(spec.extra, { raw }, pipes) as Record<string, unknown>) : {};
+      return { ...extra, items: list.map(mapOne), total };
     }
-    return mapOne(raw as Record<string, unknown>);
+    return { ...mapOne(raw as Record<string, unknown>), ...(spec.extra ? (render(spec.extra, { raw }, pipes) as Record<string, unknown>) : {}) };
   }
 }
 

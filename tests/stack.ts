@@ -18,7 +18,7 @@ const listen = (app: { listen: (port: number, host: string, cb: () => void) => S
 export async function startStack(opts: { manifestDirs?: string[]; webhook?: (e: unknown) => void } = {}) {
   const keys = { core: 'core-test-key-123456', agent: 'agent-test-key-123456', admin: 'admin-test-key-123456' };
   let clock = Date.now();
-  const core = createCoreBankApp({ serviceKey: keys.core });
+  const core = createCoreBankApp({ serviceKey: keys.core, kbDir: resolve(ROOT, 'domains/bank/kb') });
   const coreSrv = await listen(core.app);
   const bridge = createBridge({
     manifestDirs: opts.manifestDirs || [resolve(ROOT, 'domains/bank/manifest')],

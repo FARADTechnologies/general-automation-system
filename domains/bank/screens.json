@@ -1,0 +1,19 @@
+{
+  "home": "/app",
+  "accounts": "/app",
+  "transfers": "/app/transfers",
+  "payments": "/app/payments",
+  "cards": "/app/cards",
+  "history": "/app/history",
+  "analytics": "/app/analytics",
+  "subscriptions": "/app/subscriptions",
+  "branches": "/app/branches",
+  "exchange_rates": "/app/exchange",
+  "loans": "/app/loans",
+  "deposits": "/app/deposits",
+  "cashback": "/app/cashback",
+  "notifications": "/app/notifications",
+  "settings": "/app/settings",
+  "support": "/app/support",
+  "more": "/app/more"
+}

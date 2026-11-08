@@ -1,0 +1,491 @@
+id: analytics.spend_by_category
+title: Spending by category
+llm_description: >
+  Total spending per category for a period, calculated by the bank. Use for "how much did I spend
+  on X" and spending breakdowns. Figures are exact; quote them, do not recalculate.
+kind: read
+risk: R0
+derived: true
+input_schema:
+  type: object
+  properties:
+    period: { type: string, enum: [last_7_days, last_30_days, last_90_days, this_month, last_month] }
+  required: [period]
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/txn/agg
+  query: { prd: "{input.period}", grp: ctgry, dir: DR, ccy: AZN }
+response:
+  items: items
+  extra:
+    period_from: "{raw.frm_dt}"
+    period_to: "{raw.to_dt}"
+    total_spent: "{raw.ttl_minor|major}"
+    currency: "{raw.ccy}"
+  fields:
+    category: { from: key, map: { GROC: groceries, DINE: dining, TRNS: transport, SHOP: shopping, HLTH: health, SUBS: subscriptions, ENTM: entertainment, UTIL: utilities, MOBL: mobile, P2P: transfers to people } }
+    amount: { from: ttl_minor, transform: major }
+    transactions: cnt
+ui:
+  route: /app/analytics
+---
+id: analytics.compare_periods
+title: Compare spending between two periods
+llm_description: >
+  Compare spending between two periods, overall and per category, calculated by the bank
+  (difference and percentage change included). Quote the figures; do not recalculate.
+kind: read
+risk: R0
+derived: true
+input_schema:
+  type: object
+  properties:
+    period_a: { type: string, enum: [last_7_days, last_30_days, this_month, last_month, previous_7_days, previous_30_days] }
+    period_b: { type: string, enum: [last_7_days, last_30_days, this_month, last_month, previous_7_days, previous_30_days] }
+  required: [period_a, period_b]
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/txn/cmp
+  query: { prd_a: "{input.period_a}", prd_b: "{input.period_b}", grp: ctgry, dir: DR, ccy: AZN }
+response:
+  items: items
+  extra:
+    period_a_total: "{raw.a.ttl_minor|major}"
+    period_b_total: "{raw.b.ttl_minor|major}"
+    difference: "{raw.diff_minor|major}"
+    percent_change: "{raw.pct_chg}"
+    currency: "{raw.ccy}"
+  fields:
+    category: { from: key, map: { GROC: groceries, DINE: dining, TRNS: transport, SHOP: shopping, HLTH: health, SUBS: subscriptions, ENTM: entertainment, UTIL: utilities, MOBL: mobile, P2P: transfers to people } }
+    period_a: { from: a_minor, transform: major }
+    period_b: { from: b_minor, transform: major }
+    difference: { from: diff_minor, transform: major }
+ui:
+  route: /app/analytics
+---
+id: analytics.top_expenses
+title: Largest expenses
+llm_description: >
+  The largest single expenses in a period, largest first.
+kind: read
+risk: R0
+derived: true
+input_schema:
+  type: object
+  properties:
+    period: { type: string, enum: [last_7_days, last_30_days, last_90_days, this_month, last_month] }
+    limit: { type: integer, minimum: 1, maximum: 10 }
+  required: [period]
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/txn/top
+  query: { prd: "{input.period}", lmt: "{input.limit|default:5}", ccy: AZN }
+response:
+  items: items
+  fields:
+    date: { from: bkg_dt, transform: date }
+    amount: { from: amt_minor, transform: major }
+    currency: ccy
+    category: ctgry_cd
+    merchant: { from: mrch_nm, untrusted: true }
+ui:
+  route: /app/analytics
+---
+id: analytics.income_sources
+title: Income sources
+llm_description: >
+  Income received in a period, grouped by payer, calculated by the bank.
+kind: read
+risk: R0
+derived: true
+input_schema:
+  type: object
+  properties:
+    period: { type: string, enum: [last_30_days, last_90_days, this_month, last_month] }
+  required: [period]
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/txn/agg
+  query: { prd: "{input.period}", grp: cntrpty, dir: CR, ccy: AZN }
+response:
+  items: items
+  extra:
+    total_income: "{raw.ttl_minor|major}"
+    currency: "{raw.ccy}"
+  fields:
+    amount: { from: ttl_minor, transform: major }
+    payments: cnt
+    source: { from: key, untrusted: true }
+ui:
+  route: /app/analytics
+---
+id: subscriptions.list
+title: Subscriptions
+llm_description: >
+  List the customer's card subscriptions with merchant, monthly amount, next charge date and status.
+kind: read
+risk: R0
+input_schema:
+  type: object
+  properties: {}
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/sbscr
+response:
+  items: items
+  fields:
+    subscription:
+      from: sbscr_ref
+      token: { kind: subscription, provenance: bank_record, masked: "{item.mrch_nm}", label: "{item.mrch_nm}" }
+    merchant: mrch_nm
+    amount: { from: amt_minor, transform: major }
+    currency: ccy
+    next_charge: nxt_chrg_dt
+    status: { from: sts_cd, map: { ACT: active, CNL: cancelled } }
+    card_last4: { from: crd_pan, transform: last4 }
+ui:
+  route: /app/subscriptions
+---
+id: subscription.cancel.prepare
+title: Prepare cancelling a subscription
+llm_description: >
+  Prepare cancelling one card subscription. The customer confirms with one tap on the bank screen.
+  The subscription must be a token from subscriptions.list.
+kind: prepare
+risk: R2
+input_schema:
+  type: object
+  properties:
+    subscription: { type: string, description: "Subscription token from subscriptions.list" }
+  required: [subscription]
+  additionalProperties: false
+intent_terms: [cancel, stop, unsubscribe, end, remove, terminate]
+critical_args:
+  subscription: { token: subscription, provenance: [bank_record] }
+request:
+  method: POST
+  path: /internal/v3/sbscr/cncl_req
+  body:
+    cust_id: "{ctx.cust_id}"
+    sbscr_ref: "{args.subscription}"
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: op_id
+  merchant: data.mrch_nm
+  amount: { from: data.amt_minor, transform: major }
+  currency: data.ccy
+commit: { method: POST, path: "/internal/v3/op/{result.ref}/aply" }
+cancel: { method: POST, path: "/internal/v3/op/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/sbscr/{args.subscription}
+  expect: { sts_cd: CNL }
+confirm:
+  level: tap
+  title: Cancel subscription
+  display:
+    - { key: merchant, label: Subscription, value: "{result.merchant}" }
+    - { key: amount, label: Monthly charge, value: "{result.amount|money:result.currency}" }
+    - { key: effect, label: Effect, value: "No further charges from this merchant on your card." }
+errors:
+  SBSCR_INACTIVE: { code: ALREADY_CANCELLED, message: "This subscription is already cancelled." }
+ui:
+  route: /app/subscriptions
+---
+id: bills.pay_all.prepare
+title: Prepare paying all unpaid bills at once
+llm_description: >
+  Prepare paying every unpaid bill in one batch with a single confirmation. The bank calculates
+  the total. Nothing is paid until the customer confirms on the bank screen.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties: {}
+  additionalProperties: false
+intent_terms: [pay, bills, bill, settle, utilities, everything]
+lookups:
+  source:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { ccy: AZN, acct_typ_cd: CUR }
+request:
+  method: POST
+  path: /internal/v3/pmt/btch
+  body:
+    cust_id: "{ctx.cust_id}"
+    src_acct_no: "{lookup.source.acct_no}"
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: op_id
+  total: { from: data.ttl_minor, transform: major }
+  count: data.itm_cnt
+  bills: data.blr_list
+commit: { method: POST, path: "/internal/v3/op/{result.ref}/aply" }
+cancel: { method: POST, path: "/internal/v3/op/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/op/{result.ref}
+  expect: { sts_cd: DONE }
+confirm:
+  level: biometric
+  title: Pay all unpaid bills
+  display:
+    - { key: bills, label: Bills, value: "{result.bills}" }
+    - { key: count, label: Number of bills, value: "{result.count}" }
+    - { key: amount, label: Total, value: "{result.total|money:AZN}" }
+    - { key: fee, label: Fee, value: "0.00 AZN" }
+    - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
+errors:
+  NO_UNPAID: { code: NOTHING_TO_PAY, message: "There are no unpaid bills." }
+ui:
+  route: /app/payments
+---
+id: branches.list
+title: Branches
+llm_description: >
+  List the bank's branches with city, address and opening hours. Returns branch tokens.
+kind: read
+risk: R0
+input_schema:
+  type: object
+  properties: {}
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/brnch
+response:
+  items: items
+  fields:
+    branch:
+      from: brnch_cd
+      token: { kind: branch, provenance: bank_record, masked: "{item.brnch_nm}", label: "{item.brnch_nm}" }
+    name: brnch_nm
+    city: city_nm
+    address: addr_txt
+    hours: hrs_txt
+ui:
+  route: /app/branches
+---
+id: card.replace.prepare
+title: Prepare ordering a replacement card to a branch
+llm_description: >
+  Prepare ordering a replacement for a physical card, ready for pickup at a branch. Usually done
+  after blocking a lost card. Card from cards.list, branch from branches.list.
+kind: prepare
+risk: R2
+input_schema:
+  type: object
+  properties:
+    card: { type: string, description: "Card token from cards.list" }
+    branch: { type: string, description: "Branch token from branches.list" }
+  required: [card, branch]
+  additionalProperties: false
+intent_terms: [replace, replacement, reissue, order, new, another]
+critical_args:
+  card: { token: card, provenance: [bank_record] }
+  branch: { token: branch, provenance: [bank_record] }
+request:
+  method: POST
+  path: /internal/v3/crd/rplc_req
+  body:
+    cust_id: "{ctx.cust_id}"
+    crd_pan: "{args.card}"
+    brnch_cd: "{args.branch}"
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: op_id
+  card_name: data.crd_nm
+  card_last4: { from: data.crd_pan, transform: last4 }
+  branch: data.brnch_nm
+  ready: data.rdy_dt
+commit: { method: POST, path: "/internal/v3/op/{result.ref}/aply" }
+cancel: { method: POST, path: "/internal/v3/op/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/op/{result.ref}
+  expect: { sts_cd: DONE }
+confirm:
+  level: tap
+  title: Order a replacement card
+  display:
+    - { key: card, label: Card, value: "{result.card_name} •••• {result.card_last4}" }
+    - { key: branch, label: Pickup branch, value: "{result.branch}" }
+    - { key: ready, label: Ready from, value: "{result.ready}" }
+    - { key: fee, label: Fee, value: "0.00 AZN" }
+errors:
+  VIRTUAL: { code: VIRTUAL_CARD, message: "Virtual cards cannot be delivered to a branch." }
+ui:
+  route: /app/cards
+---
+id: transfer.recurring.prepare
+title: Prepare a recurring transfer
+llm_description: >
+  Prepare a standing order: a fixed amount to a saved contact every month or every week, starting
+  tomorrow unless the user gave a date. Contact from contacts.search.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    contact: { type: string, description: "Contact token from contacts.search" }
+    amount: { type: number }
+    currency: { type: string, enum: [AZN] }
+    frequency: { type: string, enum: [monthly, weekly] }
+  required: [contact, amount, currency, frequency]
+  additionalProperties: false
+intent_terms: [every, monthly, weekly, recurring, schedule, standing, each, automatic, regularly]
+critical_args:
+  contact: { token: contact, provenance: [resolved_contact] }
+  amount: { provenance: [user_stated] }
+lookups:
+  source:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { ccy: "{input.currency}", acct_typ_cd: CUR }
+policy:
+  limit_group: transfer
+  amount: "{input.amount}"
+  currency: "{input.currency}"
+request:
+  method: POST
+  path: /internal/v3/so/drft
+  body:
+    cust_id: "{ctx.cust_id}"
+    src_acct_no: "{lookup.source.acct_no}"
+    bnfcry_ref: "{args.contact}"
+    amt_minor: "{input.amount|minor}"
+    ccy: "{input.currency}"
+    freq_cd: "{input.frequency|initial}"
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: op_id
+  payee_name: data.bnfcry_nm
+  start: data.strt_dt
+commit: { method: POST, path: "/internal/v3/op/{result.ref}/aply" }
+cancel: { method: POST, path: "/internal/v3/op/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/op/{result.ref}
+  expect: { sts_cd: DONE }
+confirm:
+  level: biometric
+  title: Recurring transfer
+  display:
+    - { key: payee_name, label: To, value: "{result.payee_name}" }
+    - { key: amount, label: Amount, value: "{input.amount|money:input.currency}" }
+    - { key: frequency, label: Every, value: "{input.frequency}" }
+    - { key: start, label: First payment, value: "{result.start}" }
+    - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
+ui:
+  route: /app/transfers
+---
+id: split.calculate
+title: Split an amount
+llm_description: >
+  Split an amount equally between a number of people (including the user if they say so).
+  The bank calculates each share; use the share it returns.
+kind: read
+risk: R0
+derived: true
+input_schema:
+  type: object
+  properties:
+    amount: { type: number }
+    people: { type: integer, minimum: 2, maximum: 20 }
+  required: [amount, people]
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/calc/split
+  query: { amt_minor: "{input.amount|minor}", n: "{input.people}" }
+response:
+  fields:
+    total: { from: ttl_minor, transform: major }
+    people: n
+    share: { from: shr_minor, transform: major }
+    remainder: { from: rmndr_minor, transform: major }
+ui:
+  route: /app/history
+---
+id: payment.request.prepare
+title: Prepare payment requests to contacts
+llm_description: >
+  Prepare asking one or more saved contacts to pay the user the same amount each (for example
+  their share of a bill). Contacts from contacts.search; the amount is what the user stated or
+  the share from split.calculate. The customer confirms with one tap.
+kind: prepare
+risk: R2
+input_schema:
+  type: object
+  properties:
+    contacts: { type: array, items: { type: string }, description: "Contact tokens from contacts.search" }
+    amount: { type: number, description: "Amount each contact is asked to pay" }
+    note: { type: string, maxLength: 60 }
+  required: [contacts, amount]
+  additionalProperties: false
+intent_terms: [request, split, ask, collect, owe, back, share, charge]
+critical_args:
+  contacts: { token: contact, provenance: [resolved_contact] }
+  amount: { provenance: [user_stated, derived] }
+request:
+  method: POST
+  path: /internal/v3/rtp/drft
+  body:
+    cust_id: "{ctx.cust_id}"
+    bnfcry_refs: "{args.contacts}"
+    amt_minor: "{input.amount|minor}"
+    ccy: AZN
+    note: "{input.note}"
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: op_id
+  who: data.who
+commit: { method: POST, path: "/internal/v3/op/{result.ref}/aply" }
+cancel: { method: POST, path: "/internal/v3/op/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/op/{result.ref}
+  expect: { sts_cd: DONE }
+confirm:
+  level: tap
+  title: Request money
+  display:
+    - { key: payee_name, label: From, value: "{result.who}" }
+    - { key: amount, label: Amount each, value: "{input.amount|money:AZN}" }
+    - { key: note, label: Note, value: "{input.note}" }
+ui:
+  route: /app/transfers
+---
+id: kb.search
+title: Search bank information
+llm_description: >
+  Search the bank's own information about fees, limits, cards, accounts and security. Use for
+  knowledge questions; answer only from what it returns, and say so if nothing relevant is found.
+kind: read
+risk: R0
+input_schema:
+  type: object
+  properties:
+    query: { type: string, maxLength: 120 }
+  required: [query]
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/kb/srch
+  query: { q: "{input.query}", lmt: 3 }
+response:
+  items: items
+  fields:
+    source: doc_id
+    title: ttl
+    text: txt
+ui:
+  route: /app/support

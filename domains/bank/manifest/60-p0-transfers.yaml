@@ -1,0 +1,485 @@
+id: transfer.own.prepare
+title: Prepare a transfer between own accounts
+llm_description: >
+  Prepare moving money between two of the customer's own accounts in the same currency
+  (for example main account to savings). Both accounts are tokens from accounts.list.
+  Nothing moves until the customer confirms on the bank screen.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    from_account: { type: string, description: "Account token to take the money from" }
+    to_account: { type: string, description: "Account token to put the money into" }
+    amount: { type: number, description: "Amount in major units, as the user stated it" }
+    currency: { type: string, enum: [AZN, USD] }
+  required: [from_account, to_account, amount, currency]
+  additionalProperties: false
+intent_terms: [move, transfer, put, send, save, savings, shift, deposit, withdraw]
+critical_args:
+  amount: { provenance: [user_stated, derived] }
+  to_account: { token: account, provenance: [bank_record] }
+  from_account: { token: account, provenance: [bank_record] }
+lookups:
+  source:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { acct_no: "{args.from_account}", ccy: "{input.currency}" }
+    error: { code: CURRENCY_MISMATCH, message: "The source account is not in that currency." }
+  dest:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { acct_no: "{args.to_account}", ccy: "{input.currency}" }
+    error: { code: CURRENCY_MISMATCH, message: "The destination account is not in that currency; cross-currency moves are not available." }
+request:
+  method: POST
+  path: /internal/v3/pmt/drft
+  body:
+    cust_id: "{ctx.cust_id}"
+    src_acct_no: "{args.from_account}"
+    dst_typ_cd: ACCT
+    dst_ref: "{args.to_account}"
+    amt_minor: "{input.amount|minor}"
+    ccy: "{input.currency}"
+    chnl_cd: AGT
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: drft_id
+commit: { method: POST, path: "/internal/v3/pmt/{result.ref}/post" }
+cancel: { method: POST, path: "/internal/v3/pmt/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/pmt/{result.ref}
+  expect: { sts_cd: POSTED }
+confirm:
+  level: biometric
+  title: Move between my accounts
+  display:
+    - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
+    - { key: destination, label: To, value: "{lookup.dest.acct_nm} •••• {lookup.dest.acct_no|last4}" }
+    - { key: amount, label: Amount, value: "{input.amount|money:input.currency}" }
+    - { key: fee, label: Fee, value: "0.00 {input.currency}" }
+errors:
+  SAME_ACCT: { code: SAME_ACCOUNT, message: "Source and destination are the same account." }
+ui:
+  route: /app/transfers/own
+---
+id: transfer.card.prepare
+title: Prepare a transfer to a card number
+llm_description: >
+  Prepare a transfer to a card number the user typed or said. The card must be the pan_ reference
+  that replaced the number in the user's message. Transfers to other banks' cards have a fee.
+  Nothing moves until the customer confirms on the bank screen.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    card: { type: string, description: "pan_ reference from the user's message" }
+    amount: { type: number }
+    currency: { type: string, enum: [AZN] }
+  required: [card, amount, currency]
+  additionalProperties: false
+intent_terms: [send, transfer, pay, give, wire, move]
+critical_args:
+  card: { token: pan, provenance: [ingress_token] }
+  amount: { provenance: [user_stated, derived] }
+lookups:
+  source:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { ccy: "{input.currency}", acct_typ_cd: CUR }
+policy:
+  limit_group: transfer
+  amount: "{input.amount}"
+  currency: "{input.currency}"
+  new_payee: "true"
+  balance: "{lookup.source.avail_bal_minor|major}"
+request:
+  method: POST
+  path: /internal/v3/pmt/drft
+  body:
+    cust_id: "{ctx.cust_id}"
+    src_acct_no: "{lookup.source.acct_no}"
+    dst_typ_cd: PAN
+    dst_ref: "{args.card}"
+    amt_minor: "{input.amount|minor}"
+    ccy: "{input.currency}"
+    chnl_cd: AGT
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: drft_id
+  fee: { from: fee_minor, transform: major }
+  payee_name: dst_nm
+commit: { method: POST, path: "/internal/v3/pmt/{result.ref}/post" }
+cancel: { method: POST, path: "/internal/v3/pmt/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/pmt/{result.ref}
+  expect: { sts_cd: POSTED }
+confirm:
+  level: biometric
+  title: Transfer to a card
+  display:
+    - { key: payee_name, label: To, value: "{result.payee_name}" }
+    - { key: masked_destination, label: Card, value: "{input.card|masked}" }
+    - { key: amount, label: Amount, value: "{input.amount|money:input.currency}" }
+    - { key: fee, label: Fee, value: "{result.fee|money:input.currency}" }
+    - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
+ui:
+  route: /app/transfers/contact
+  form: transfer
+  fields:
+    - { target: transfer-recipient, display: masked_destination }
+    - { target: transfer-amount, display: amount }
+    - { target: transfer-source, display: source_account }
+  submit: transfer-continue
+---
+id: transfer.phone.prepare
+title: Prepare a transfer to a phone number
+llm_description: >
+  Prepare a transfer to a Caspia customer by phone number. The phone must be the tel_ reference
+  that replaced the number in the user's message. Only Caspia customers can receive by phone.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    phone: { type: string, description: "tel_ reference from the user's message" }
+    amount: { type: number }
+    currency: { type: string, enum: [AZN] }
+  required: [phone, amount, currency]
+  additionalProperties: false
+intent_terms: [send, transfer, pay, give, wire, move]
+critical_args:
+  phone: { token: phone, provenance: [ingress_token] }
+  amount: { provenance: [user_stated, derived] }
+lookups:
+  source:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { ccy: "{input.currency}", acct_typ_cd: CUR }
+policy:
+  limit_group: transfer
+  amount: "{input.amount}"
+  currency: "{input.currency}"
+request:
+  method: POST
+  path: /internal/v3/pmt/drft
+  body:
+    cust_id: "{ctx.cust_id}"
+    src_acct_no: "{lookup.source.acct_no}"
+    dst_typ_cd: MSISDN
+    dst_ref: "{args.phone}"
+    amt_minor: "{input.amount|minor}"
+    ccy: "{input.currency}"
+    chnl_cd: AGT
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: drft_id
+  payee_name: dst_nm
+commit: { method: POST, path: "/internal/v3/pmt/{result.ref}/post" }
+cancel: { method: POST, path: "/internal/v3/pmt/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/pmt/{result.ref}
+  expect: { sts_cd: POSTED }
+confirm:
+  level: biometric
+  title: Transfer by phone number
+  display:
+    - { key: payee_name, label: To, value: "{result.payee_name}" }
+    - { key: masked_destination, label: Phone, value: "{input.phone|masked}" }
+    - { key: amount, label: Amount, value: "{input.amount|money:input.currency}" }
+    - { key: fee, label: Fee, value: "0.00 {input.currency}" }
+    - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
+errors:
+  MSISDN_NF: { code: NOT_A_CUSTOMER, message: "No Caspia customer has this phone number." }
+ui:
+  route: /app/transfers/contact
+  form: transfer
+  fields:
+    - { target: transfer-recipient, display: payee_name }
+    - { target: transfer-amount, display: amount }
+    - { target: transfer-source, display: source_account }
+  submit: transfer-continue
+---
+id: templates.list
+title: Saved templates
+llm_description: >
+  List the customer's saved payment templates (name, type, payee and amount). Use a template
+  token with transfer.template.prepare when the user refers to a template by name.
+kind: read
+risk: R0
+input_schema:
+  type: object
+  properties: {}
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/tmpl
+response:
+  items: items
+  fields:
+    template:
+      from: tmpl_ref
+      token: { kind: template, provenance: template, masked: "{item.tmpl_nm}", label: "{item.tmpl_nm}" }
+    name: tmpl_nm
+    type: { from: tmpl_typ, map: { P2P: transfer, BLL: bill, TOPUP: mobile_topup } }
+    payee: pye_nm
+    amount: { from: amt_minor, transform: major }
+    currency: ccy
+ui:
+  route: /app/transfers
+---
+id: transfer.template.prepare
+title: Prepare a transfer from a saved template
+llm_description: >
+  Prepare the transfer stored in a saved template (payee and amount come from the template).
+  Only templates of type transfer. Nothing moves until the customer confirms.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    template: { type: string, description: "Template token from templates.list" }
+  required: [template]
+  additionalProperties: false
+intent_terms: [send, pay, transfer, rent, template, usual]
+critical_args:
+  template: { token: template, provenance: [template] }
+lookups:
+  tmpl:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/tmpl
+    items: items
+    where: { tmpl_ref: "{args.template}", tmpl_typ: P2P }
+    error: { code: NOT_A_TRANSFER_TEMPLATE, message: "That template is not a transfer template." }
+  source:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { ccy: "{lookup.tmpl.ccy}", acct_typ_cd: CUR }
+policy:
+  limit_group: transfer
+  amount: "{lookup.tmpl.amt_minor|major}"
+  currency: "{lookup.tmpl.ccy}"
+request:
+  method: POST
+  path: /internal/v3/pmt/drft
+  body:
+    cust_id: "{ctx.cust_id}"
+    src_acct_no: "{lookup.source.acct_no}"
+    dst_typ_cd: BNF
+    dst_ref: "{lookup.tmpl.bnfcry_ref}"
+    amt_minor: "{lookup.tmpl.amt_minor}"
+    ccy: "{lookup.tmpl.ccy}"
+    chnl_cd: AGT
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: drft_id
+  fee: { from: fee_minor, transform: major }
+  payee_name: dst_nm
+commit: { method: POST, path: "/internal/v3/pmt/{result.ref}/post" }
+cancel: { method: POST, path: "/internal/v3/pmt/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/pmt/{result.ref}
+  expect: { sts_cd: POSTED }
+confirm:
+  level: biometric
+  title: Template transfer
+  display:
+    - { key: template, label: Template, value: "{lookup.tmpl.tmpl_nm}" }
+    - { key: payee_name, label: To, value: "{result.payee_name}" }
+    - { key: amount, label: Amount, value: "{lookup.tmpl.amt_minor|major|money:lookup.tmpl.ccy}" }
+    - { key: fee, label: Fee, value: "{result.fee|money:lookup.tmpl.ccy}" }
+    - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
+ui:
+  route: /app/transfers/contact
+  form: transfer
+  fields:
+    - { target: transfer-recipient, display: payee_name }
+    - { target: transfer-amount, display: amount }
+    - { target: transfer-source, display: source_account }
+  submit: transfer-continue
+---
+id: card.unblock.prepare
+title: Prepare unblocking a card
+llm_description: >
+  Prepare unblocking (unfreezing) a blocked card. This weakens security, so the customer confirms
+  with fingerprint or PIN on the bank screen. The card must be a token from cards.list.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    card: { type: string, description: "Card token from cards.list" }
+  required: [card]
+  additionalProperties: false
+intent_terms: [unblock, unfreeze, unlock, reactivate, activate, enable, restore]
+critical_args:
+  card: { token: card, provenance: [bank_record] }
+lookups:
+  card:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/crd
+    items: items
+    where: { crd_pan: "{args.card}" }
+request:
+  method: POST
+  path: /internal/v3/crd/chg_req
+  body:
+    cust_id: "{ctx.cust_id}"
+    crd_pan: "{args.card}"
+    new_sts_cd: A
+    rsn_cd: CUST
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: req_id
+commit: { method: POST, path: "/internal/v3/crd/chg_req/{result.ref}/aply" }
+cancel: { method: POST, path: "/internal/v3/crd/chg_req/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/crd/{args.card}
+  expect: { crd_sts_cd: A }
+confirm:
+  level: biometric
+  title: Unblock card
+  display:
+    - { key: card, label: Card, value: "{lookup.card.crd_nm} •••• {lookup.card.crd_pan|last4}" }
+    - { key: effect, label: Effect, value: "Card payments and withdrawals work again." }
+errors:
+  CRD_STS_SAME: { code: ALREADY_ACTIVE, message: "This card is already active." }
+ui:
+  route: /app/cards
+  fields: []
+---
+id: topup.mobile.prepare
+title: Prepare a mobile top-up
+llm_description: >
+  Prepare topping up a mobile number with Azercell, Bakcell or Nar. The phone must be the tel_
+  reference from the user's message. For the customer's own Bakcell number use topup.own.prepare.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    operator: { type: string, enum: [Azercell, Bakcell, Nar] }
+    phone: { type: string, description: "tel_ reference from the user's message" }
+    amount: { type: number }
+  required: [operator, phone, amount]
+  additionalProperties: false
+intent_terms: [top, topup, recharge, load, credit, refill]
+critical_args:
+  phone: { token: phone, provenance: [ingress_token] }
+  amount: { provenance: [user_stated, derived] }
+lookups:
+  source:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { ccy: AZN, acct_typ_cd: CUR }
+policy:
+  limit_group: topup
+  amount: "{input.amount}"
+  currency: AZN
+request:
+  method: POST
+  path: /internal/v3/pmt/drft
+  body:
+    cust_id: "{ctx.cust_id}"
+    src_acct_no: "{lookup.source.acct_no}"
+    dst_typ_cd: TOPUP
+    dst_ref: "{input.operator|upper}:{args.phone|local_msisdn}"
+    amt_minor: "{input.amount|minor}"
+    ccy: AZN
+    chnl_cd: AGT
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: drft_id
+commit: { method: POST, path: "/internal/v3/pmt/{result.ref}/post" }
+cancel: { method: POST, path: "/internal/v3/pmt/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/pmt/{result.ref}
+  expect: { sts_cd: POSTED }
+confirm:
+  level: biometric
+  title: Mobile top-up
+  display:
+    - { key: operator, label: Operator, value: "{input.operator}" }
+    - { key: masked_destination, label: Number, value: "{input.phone|masked}" }
+    - { key: amount, label: Amount, value: "{input.amount|money:AZN}" }
+    - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
+errors:
+  TOPUP_INV: { code: INVALID_NUMBER, message: "That is not a valid mobile number for this operator." }
+ui:
+  route: /app/payments
+---
+id: topup.own.prepare
+title: Prepare a top-up of the customer's own number
+llm_description: >
+  Prepare topping up the customer's own mobile number saved in the "My Bakcell" template.
+  The user must state the amount, or say to use the template's amount.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    amount: { type: number, description: "Amount the user stated, or the template amount if the user asked for it" }
+  required: [amount]
+  additionalProperties: false
+intent_terms: [top, topup, recharge, load, credit, refill]
+critical_args:
+  amount: { provenance: [user_stated, derived, template] }
+lookups:
+  tmpl:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/tmpl
+    items: items
+    where: { tmpl_typ: TOPUP }
+    error: { code: NO_OWN_NUMBER, message: "No own mobile number is saved." }
+  source:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { ccy: AZN, acct_typ_cd: CUR }
+policy:
+  limit_group: topup
+  amount: "{input.amount}"
+  currency: AZN
+request:
+  method: POST
+  path: /internal/v3/pmt/drft
+  body:
+    cust_id: "{ctx.cust_id}"
+    src_acct_no: "{lookup.source.acct_no}"
+    dst_typ_cd: TOPUP
+    dst_ref: "{lookup.tmpl.blr_cd}:{lookup.tmpl.sbscr_no}"
+    amt_minor: "{input.amount|minor}"
+    ccy: AZN
+    chnl_cd: AGT
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: drft_id
+commit: { method: POST, path: "/internal/v3/pmt/{result.ref}/post" }
+cancel: { method: POST, path: "/internal/v3/pmt/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/pmt/{result.ref}
+  expect: { sts_cd: POSTED }
+confirm:
+  level: biometric
+  title: Top up my number
+  display:
+    - { key: operator, label: Operator, value: "{lookup.tmpl.pye_nm}" }
+    - { key: masked_destination, label: Number, value: "•••{lookup.tmpl.sbscr_no|last4}" }
+    - { key: amount, label: Amount, value: "{input.amount|money:AZN}" }
+    - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
+ui:
+  route: /app/payments

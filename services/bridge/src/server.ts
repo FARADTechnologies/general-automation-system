@@ -43,6 +43,7 @@ export function createBridge(opts: BridgeOptions) {
   const audit = new AuditLog(opts.auditPath);
   const core = new CoreClient(opts.coreBankUrl, opts.coreBankKey);
   const devices = new Map<string, string>(); // device token -> session
+  const handoffs: { ticket_id: string; session: string; created_at: string; status: string; record: Record<string, unknown> }[] = [];
 
   const notify = (e: BridgeEvent) => {
     if (!opts.webhookUrl) return;
@@ -109,6 +110,16 @@ export function createBridge(opts: BridgeOptions) {
     vault.clearSession(s); policy.clearSession(s); engine.clearSession(s);
     audit.write({ trace_id: 'reset', session: s, actor: 'operator', event: 'session.reset', decision: 'ok' });
     res.json({ ok: true });
+  });
+  // Human handoff queue: structured record built by the agent runtime from its ledger.
+  agent.post('/handoff', (req, res) => {
+    const b = req.body || {};
+    if (!SESSION_RE.test(String(b.session))) { res.status(400).json({ code: 'SESSION_REQUIRED' }); return; }
+    const ticket_id = 'HND-' + randomBytes(3).toString('hex').toUpperCase();
+    handoffs.unshift({ ticket_id, session: String(b.session), created_at: new Date().toISOString(), status: 'open', record: b.record || {} });
+    if (handoffs.length > 200) handoffs.pop();
+    audit.write({ trace_id: String(b.trace_id || 'handoff'), session: String(b.session), actor: 'agent', event: 'handoff.created', decision: 'queued', detail: { ticket_id, reason: b.record?.reason } });
+    res.json({ ticket_id });
   });
   agent.post('/audit', (req, res) => {
     const b = req.body || {};
@@ -179,6 +190,8 @@ export function createBridge(opts: BridgeOptions) {
   admin.get('/audit', (req, res) => {
     res.json({ items: audit.list({ session: req.query.session as string | undefined, trace_id: req.query.trace_id as string | undefined, after: Number(req.query.after) || undefined, limit: Number(req.query.limit) || 200 }) });
   });
+  admin.get('/handoffs', (_req, res) => { res.json({ items: handoffs }); });
+  admin.post('/handoffs/:id/close', (req, res) => { const h = handoffs.find((x) => x.ticket_id === req.params.id); if (h) h.status = 'closed'; res.json({ ok: !!h }); });
   admin.post('/fault', async (req, res) => { await core.req('POST', '/internal/admin/flt', { body: req.body || {} }); res.json({ ok: true }); });
   app.use('/admin', admin);
 

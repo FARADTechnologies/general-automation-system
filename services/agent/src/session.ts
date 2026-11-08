@@ -2,6 +2,7 @@
 import { runTurn, newSessionState, type SessionState, type TurnResult, type ConfirmationOutcome, type ModelClient, type LoopConfig, type ToolPort, type ToolMeta, type Ledger, type TraceEvent } from '@gas/agent-core';
 import { BridgeSession } from './bridgeClient.ts';
 import { Hub } from './hub.ts';
+import { localTools, type ScreenMap } from './local-tools.ts';
 
 export interface RuntimeConfig {
   bridgeUrl: string;
@@ -11,6 +12,7 @@ export interface RuntimeConfig {
   choreographyStepMs: number;
   confirmTimeoutMs: number;
   maxInputsPerMinute: number;
+  screens?: ScreenMap;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -69,6 +71,7 @@ export class Session {
         tools: this.toolPort(),
         config: this.cfg.loop,
         signal: this.abort.signal,
+        local: localTools({ hub: this.hub, bridge: this.bridge, screens: this.cfg.screens || {}, transcript: () => this.hub.state.transcript.map((x) => ({ role: x.role, text: x.text })) }),
         events: {
           status: (s, note) => this.setStatus(s, note),
           ledger: (l) => this.showPlan(l),

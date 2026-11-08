@@ -63,6 +63,10 @@ export const basePipes: Record<string, PipeFn> = {
   default: (v, arg) => (v === undefined || v === null || v === '' ? (arg !== undefined && arg !== '' && !Number.isNaN(Number(arg)) ? Number(arg) : arg) : v),
   days_ago: (v) => (v === undefined || v === null ? v : new Date(Date.now() - Number(v) * 86400000).toISOString()),
   date: (v) => (typeof v === 'string' ? v.slice(0, 10) : v),
+  initial: (v) => (typeof v === 'string' && v ? v[0].toUpperCase() : v),
+  // Azerbaijani mobile number in local form: 0XXXXXXXXX
+  local_msisdn: (v) => { if (v === undefined || v === null) return v; const d = String(v).replace(/\D/g, ''); return d.startsWith('994') ? '0' + d.slice(3) : d.length === 9 ? '0' + d : d; },
+  join: (v, arg) => (Array.isArray(v) ? v.join(arg ?? ', ') : v),
   money: (v, arg, scope) => {
     if (v === undefined || v === null) return v;
     const ccy = arg && arg.includes('.') ? getPath(scope, arg) : arg;

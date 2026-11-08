@@ -9,6 +9,7 @@ import { createAgentServer } from './server.ts';
 loadEnv();
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const domainPrompt = readFileSync(resolve(root, 'domains/bank/prompt.md'), 'utf8');
+const screens = JSON.parse(readFileSync(resolve(root, 'domains/bank/screens.json'), 'utf8')) as Record<string, string>;
 const tryCommands = JSON.parse(readFileSync(resolve(root, 'domains/bank/try-commands.json'), 'utf8')) as string[];
 
 const model = new AnthropicModel({
@@ -32,6 +33,7 @@ const { server } = createAgentServer({
   choreographyStepMs: Number(process.env.CHOREO_STEP_MS || 220),
   confirmTimeoutMs: 125_000,
   maxInputsPerMinute: 12,
+  screens,
   tryCommands,
 });
 const port = Number(process.env.AGENT_PORT || 4300);

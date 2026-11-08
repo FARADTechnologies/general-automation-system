@@ -15,6 +15,7 @@ export interface ToolMeta {
   criticalArgs: Record<string, { token?: string; provenance?: string[] }>;
   intentTerms: string[];
   tokenProvenance: Record<string, string>;
+  derived?: boolean;
 }
 
 export type GuardDecision = { ok: true } | { ok: false; code: string; reason: string };
@@ -64,16 +65,20 @@ export function guardToolCall(
     if (value === undefined) continue;
     const allowed = spec.provenance || [];
     if (spec.token) {
-      const rec = ledger.evidence.tokens[String(value)];
-      if (!rec) return { ok: false, code: 'PROVENANCE_REJECTED', reason: `${arg} must be a reference returned by a tool in this task or given by the user.` };
-      if (allowed.length && !allowed.includes(rec.provenance)) return { ok: false, code: 'PROVENANCE_REJECTED', reason: `${arg} must come from ${allowed.join(' or ')}.` };
-      if (rec.provenance === 'resolved_contact' && !queryFromUser(rec.query || '', ledger.evidence.user_texts)) {
-        return { ok: false, code: 'PAYEE_NOT_FROM_USER', reason: `The contact was searched with "${rec.query}", which the user never said. A payee can only come from the user's own words.` };
+      for (const one of Array.isArray(value) ? value : [value]) {
+        const rec = ledger.evidence.tokens[String(one)];
+        if (!rec) return { ok: false, code: 'PROVENANCE_REJECTED', reason: `${arg} must be a reference returned by a tool in this task or given by the user.` };
+        if (allowed.length && !allowed.includes(rec.provenance)) return { ok: false, code: 'PROVENANCE_REJECTED', reason: `${arg} must come from ${allowed.join(' or ')}.` };
+        if (rec.provenance === 'resolved_contact' && !queryFromUser(rec.query || '', ledger.evidence.user_texts)) {
+          return { ok: false, code: 'PAYEE_NOT_FROM_USER', reason: `The contact was searched with "${rec.query}", which the user never said. A payee can only come from the user's own words.` };
+        }
       }
     } else if (typeof value === 'number') {
-      const fromUser = allowed.includes('user_stated') && ledger.evidence.amounts.some((a) => Math.abs(a - value) < 0.005);
-      const derived = allowed.includes('derived') && ledger.evidence.derived.some((a) => Math.abs(a - value) < 0.005);
-      if (!fromUser && !derived) return { ok: false, code: 'AMOUNT_NOT_STATED', reason: `The amount ${value} was not stated by the user in this task. Ask the user for the amount.` };
+      const near = (list: number[]) => list.some((a) => Math.abs(a - value) < 0.005);
+      const ok = (allowed.includes('user_stated') && near(ledger.evidence.amounts))
+        || (allowed.includes('derived') && near(ledger.evidence.derived))
+        || (allowed.includes('template') && near(ledger.evidence.template_amounts));
+      if (!ok) return { ok: false, code: 'AMOUNT_NOT_STATED', reason: `The amount ${value} was not stated by the user in this task. Ask the user for the amount.` };
     }
   }
 

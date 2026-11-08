@@ -3,14 +3,18 @@ import { randomBytes } from 'node:crypto';
 import { seedCustomer, type CustomerData } from './seed.ts';
 
 export interface Drft {
-  drft_id: string; cust_id: string; dst_typ_cd: 'BNF' | 'PAN' | 'ACCT' | 'BLL' | 'TOPUP';
+  drft_id: string; cust_id: string; dst_typ_cd: 'BNF' | 'PAN' | 'ACCT' | 'BLL' | 'TOPUP' | 'MSISDN';
   src_acct_no: string; dst_ref: string; dst_nm: string; amt_minor: number; fee_minor: number; ccy: string;
   chnl_cd: string; idmp_key: string; sts_cd: 'DRFT' | 'POSTED' | 'CNCL' | 'RJCT'; crt_ts: string; pst_ts: string | null; txn_ref: string | null; rsn_cd: string | null;
 }
 export interface CrdChgReq { req_id: string; cust_id: string; crd_pan: string; new_sts_cd: 'A' | 'B'; rsn_cd: string; idmp_key: string; sts_cd: 'PEND' | 'APLD' | 'CNCL' }
 export interface Fault { op: string; mode: 'error' | 'timeout'; cnt: number }
+/** Business effects journal, used by the evaluation oracle to compare outcomes. */
+export type Effect = Record<string, string | number>;
+/** Generic two-phase operation: created pending, applied on confirmation. */
+export interface Op { op_id: string; cust_id: string; knd: 'BTCH' | 'RPLC' | 'SO' | 'RTP' | 'SBCN'; sts_cd: 'PEND' | 'DONE' | 'CNCL' | 'RJCT'; idmp_key: string; crt_ts: string; data: Record<string, any> }
 
-interface Customer { cust_id: string; ext_ref: string; data: CustomerData; drfts: Map<string, Drft>; chg: Map<string, CrdChgReq>; faults: Fault[] }
+interface Customer { cust_id: string; ext_ref: string; data: CustomerData; drfts: Map<string, Drft>; chg: Map<string, CrdChgReq>; ops: Map<string, Op>; faults: Fault[]; journal: Effect[]; so: any[]; rtp: any[]; rplc: any[] }
 
 export class BankError extends Error {
   constructor(public status: number, public rsn_cd: string, msg: string) { super(msg); }
@@ -28,7 +32,7 @@ export class CoreBank {
     const existing = this.byExt.get(ext_ref);
     if (existing) return existing;
     const cust_id = 'C' + randomBytes(6).toString('hex').toUpperCase();
-    this.byCust.set(cust_id, { cust_id, ext_ref, data: seedCustomer(), drfts: new Map(), chg: new Map(), faults: [] });
+    this.byCust.set(cust_id, { cust_id, ext_ref, data: seedCustomer(), drfts: new Map(), chg: new Map(), ops: new Map(), faults: [], journal: [], so: [], rtp: [], rplc: [] });
     this.byExt.set(ext_ref, cust_id);
     return cust_id;
   }
@@ -36,7 +40,7 @@ export class CoreBank {
   reset(ext_ref: string): string {
     const cust_id = this.resolve(ext_ref);
     const c = this.byCust.get(cust_id)!;
-    c.data = seedCustomer(); c.drfts.clear(); c.chg.clear(); c.faults = [];
+    c.data = seedCustomer(); c.drfts.clear(); c.chg.clear(); c.ops.clear(); c.faults = []; c.journal = []; c.so = []; c.rtp = []; c.rplc = [];
     return cust_id;
   }
 
@@ -89,6 +93,13 @@ export class CoreBank {
         const b = c.data.bnfcry.find((x) => x.dst_pan === ref);
         dst_nm = b ? b.bnfcry_nm : 'Card holder';
         fee = ref.startsWith(OWN_BIN) ? 0 : Math.max(30, Math.round(amt * 0.005));
+        break;
+      }
+      case 'MSISDN': {
+        const digits = ref.replace(/\D/g, '');
+        const b = digits.length >= 9 ? c.data.bnfcry.find((x) => x.msisdn.replace(/\D/g, '').endsWith(digits.slice(-9))) : undefined;
+        if (!b) throw new BankError(404, 'MSISDN_NF', 'no Caspia customer with this number');
+        dst_nm = b.bnfcry_nm;
         break;
       }
       case 'ACCT': {
@@ -165,6 +176,12 @@ export class CoreBank {
       mrch_nm: mrch, txn_desc: '', ctgry_cd: ctg, crd_pan: null, cntrpty_nm: d.dst_typ_cd === 'BNF' || d.dst_typ_cd === 'PAN' ? d.dst_nm : null,
     });
     d.sts_cd = 'POSTED'; d.pst_ts = new Date().toISOString(); d.txn_ref = txn_ref;
+    const amount = d.amt_minor / 100;
+    if (d.dst_typ_cd === 'BLL') c.journal.push({ type: 'bill_paid', biller: d.dst_nm });
+    else if (d.dst_typ_cd === 'TOPUP') c.journal.push({ type: 'topup', operator: d.dst_nm, amount });
+    else if (d.dst_typ_cd === 'ACCT') c.journal.push({ type: 'transfer', to: 'own:' + d.dst_nm, amount, currency: d.ccy });
+    else if (d.dst_typ_cd === 'PAN') c.journal.push({ type: 'transfer', to: c.data.bnfcry.some((b) => b.dst_pan === d.dst_ref) ? d.dst_nm : 'card:' + d.dst_ref.slice(-4), amount, currency: d.ccy });
+    else c.journal.push({ type: 'transfer', to: d.dst_nm, amount, currency: d.ccy });
     return d;
   }
 
@@ -199,9 +216,129 @@ export class CoreBank {
       await this.maybeFault(c, 'crd.aply');
       card.crd_sts_cd = r.new_sts_cd;
       r.sts_cd = 'APLD';
+      c.journal.push({ type: r.new_sts_cd === 'B' ? 'card_blocked' : 'card_unblocked', last4: card.crd_pan.slice(-4) });
     }
     return { ...r, crd_sts_cd: card.crd_sts_cd };
   }
 
   cancelCardChange(req_id: string) { const r = this.getCardChange(req_id); if (r.sts_cd === 'PEND') r.sts_cd = 'CNCL'; return r; }
+
+  effects(cust_id: string) { return this.cust(cust_id).journal; }
+  standingOrders(cust_id: string) { return this.cust(cust_id).so; }
+  paymentRequests(cust_id: string) { return this.cust(cust_id).rtp; }
+
+  // ---------- generic two-phase operations ----------
+  async createOp(knd: Op['knd'], body: Record<string, any>): Promise<Op> {
+    const c = this.cust(String(body.cust_id));
+    await this.maybeFault(c, 'op.' + knd.toLowerCase());
+    const idmp = String(body.idmp_key || '');
+    if (!idmp) throw new BankError(400, 'IDMP_REQ', 'idmp_key required');
+    const dup = [...c.ops.values()].find((o) => o.idmp_key === idmp);
+    if (dup) return dup;
+    let data: Record<string, any> = {};
+    const acct = (no: string) => { const a = c.data.accts.find((x) => x.acct_no === no); if (!a) throw new BankError(404, 'ACCT_NF', 'account not found'); return a; };
+    const bnf = (ref: string) => { const b = c.data.bnfcry.find((x) => x.bnfcry_ref === ref); if (!b) throw new BankError(404, 'BNF_NF', 'beneficiary not found'); return b; };
+    switch (knd) {
+      case 'BTCH': {
+        const src = acct(String(body.src_acct_no));
+        const unpaid = c.data.blls.filter((b) => b.bll_sts_cd === 'UNPD' && (!Array.isArray(body.bll_refs) || body.bll_refs.includes(b.bll_ref)));
+        if (!unpaid.length) throw new BankError(422, 'NO_UNPAID', 'no unpaid bills');
+        if (unpaid.some((b) => b.ccy !== src.ccy)) throw new BankError(422, 'CCY_MISMATCH', 'bill currency differs from the account');
+        const ttl = unpaid.reduce((s, b) => s + b.due_amt_minor, 0);
+        if (ttl > src.bal_minor) throw new BankError(422, 'NSF', 'insufficient funds');
+        data = { src_acct_no: src.acct_no, items: unpaid.map((b) => ({ bll_ref: b.bll_ref, blr_nm: b.blr_nm, amt_minor: b.due_amt_minor })), ttl_minor: ttl, ccy: src.ccy, itm_cnt: unpaid.length, blr_list: unpaid.map((b) => `${b.blr_nm} ${(b.due_amt_minor / 100).toFixed(2)}`).join(', ') };
+        break;
+      }
+      case 'RPLC': {
+        const card = c.data.crds.find((x) => x.crd_pan === body.crd_pan);
+        if (!card) throw new BankError(404, 'CRD_NF', 'card not found');
+        if (card.vrtl_flg === 'Y') throw new BankError(422, 'VIRTUAL', 'virtual cards are not delivered to a branch');
+        const br = c.data.brnch.find((x) => x.brnch_cd === body.brnch_cd);
+        if (!br) throw new BankError(404, 'BRNCH_NF', 'branch not found');
+        data = { crd_pan: card.crd_pan, crd_nm: card.crd_nm, brnch_cd: br.brnch_cd, brnch_nm: br.brnch_nm, rdy_dt: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10), fee_minor: 0 };
+        break;
+      }
+      case 'SO': {
+        const src = acct(String(body.src_acct_no));
+        const b = bnf(String(body.bnfcry_ref));
+        const amt = Number(body.amt_minor);
+        if (!Number.isInteger(amt) || amt <= 0) throw new BankError(400, 'AMT_INV', 'invalid amount');
+        if (src.ccy !== body.ccy) throw new BankError(422, 'CCY_MISMATCH', 'currency differs from the account');
+        const freq = body.freq_cd === 'W' ? 'W' : 'M';
+        const strt = String(body.strt_dt || new Date(Date.now() + 86400000).toISOString().slice(0, 10));
+        data = { src_acct_no: src.acct_no, bnfcry_ref: b.bnfcry_ref, bnfcry_nm: b.bnfcry_nm, amt_minor: amt, ccy: src.ccy, freq_cd: freq, strt_dt: strt };
+        break;
+      }
+      case 'RTP': {
+        const refs: string[] = Array.isArray(body.bnfcry_refs) ? body.bnfcry_refs.filter(Boolean) : [];
+        if (!refs.length || refs.length > 10) throw new BankError(400, 'RTP_INV', 'one to ten contacts');
+        const amt = Number(body.amt_minor);
+        if (!Number.isInteger(amt) || amt <= 0) throw new BankError(400, 'AMT_INV', 'invalid amount');
+        const items = refs.map((r) => ({ bnfcry_ref: r, bnfcry_nm: bnf(r).bnfcry_nm, amt_minor: amt }));
+        data = { items, ccy: String(body.ccy || 'AZN'), note: String(body.note || '').slice(0, 80), who: items.map((i) => i.bnfcry_nm).join(', ') };
+        break;
+      }
+      case 'SBCN': {
+        const s = c.data.sbscr.find((x) => x.sbscr_ref === body.sbscr_ref);
+        if (!s) throw new BankError(404, 'SBSCR_NF', 'subscription not found');
+        if (s.sts_cd !== 'ACT') throw new BankError(422, 'SBSCR_INACTIVE', 'subscription already cancelled');
+        data = { sbscr_ref: s.sbscr_ref, mrch_nm: s.mrch_nm, amt_minor: s.amt_minor, ccy: s.ccy, nxt_chrg_dt: s.nxt_chrg_dt };
+        break;
+      }
+    }
+    const op: Op = { op_id: id('OP'), cust_id: c.cust_id, knd, sts_cd: 'PEND', idmp_key: idmp, crt_ts: new Date().toISOString(), data };
+    c.ops.set(op.op_id, op);
+    return op;
+  }
+
+  getOp(op_id: string): Op {
+    for (const c of this.byCust.values()) { const o = c.ops.get(op_id); if (o) return o; }
+    throw new BankError(404, 'OP_NF', 'operation not found');
+  }
+
+  cancelOp(op_id: string): Op { const o = this.getOp(op_id); if (o.sts_cd === 'PEND') o.sts_cd = 'CNCL'; return o; }
+
+  async applyOp(op_id: string): Promise<Op> {
+    const o = this.getOp(op_id);
+    if (o.sts_cd === 'DONE') return o;
+    if (o.sts_cd !== 'PEND') throw new BankError(409, 'OP_STATE', 'operation is ' + o.sts_cd);
+    const c = this.cust(o.cust_id);
+    await this.maybeFault(c, 'op.apply');
+    const d = o.data;
+    switch (o.knd) {
+      case 'BTCH': {
+        const src = c.data.accts.find((a) => a.acct_no === d.src_acct_no)!;
+        const bills = d.items.map((it: any) => c.data.blls.find((b) => b.bll_ref === it.bll_ref)!);
+        if (bills.some((b: any) => b.bll_sts_cd !== 'UNPD')) { o.sts_cd = 'RJCT'; throw new BankError(422, 'BLL_PAID', 'a bill in the batch is already paid'); }
+        if (d.ttl_minor > src.bal_minor) { o.sts_cd = 'RJCT'; throw new BankError(422, 'NSF', 'insufficient funds'); }
+        for (const b of bills) {
+          b.bll_sts_cd = 'PAID';
+          src.bal_minor -= b.due_amt_minor;
+          c.data.txns.unshift({ txn_ref: id('TXN'), acct_no: src.acct_no, bkg_dt: new Date().toISOString(), amt_minor: -b.due_amt_minor, ccy: b.ccy, mrch_nm: b.blr_nm, txn_desc: '', ctgry_cd: b.blr_cd === 'BAKCELL' ? 'MOBL' : 'UTIL', crd_pan: null, cntrpty_nm: null });
+          c.journal.push({ type: 'bill_paid', biller: b.blr_nm });
+        }
+        break;
+      }
+      case 'RPLC':
+        c.rplc.push({ ...d, sts_cd: 'ORDERED' });
+        c.journal.push({ type: 'card_replacement', last4: d.crd_pan.slice(-4), branch: d.brnch_nm });
+        break;
+      case 'SO':
+        c.so.push({ so_id: o.op_id, ...d, sts_cd: 'ACT' });
+        c.journal.push({ type: 'recurring_transfer', to: d.bnfcry_nm, amount: d.amt_minor / 100, currency: d.ccy, frequency: d.freq_cd === 'W' ? 'weekly' : 'monthly' });
+        break;
+      case 'RTP':
+        for (const it of d.items) { c.rtp.push({ ...it, ccy: d.ccy, note: d.note, sts_cd: 'SENT' }); c.journal.push({ type: 'payment_request', from: it.bnfcry_nm, amount: it.amt_minor / 100 }); }
+        break;
+      case 'SBCN': {
+        const s = c.data.sbscr.find((x) => x.sbscr_ref === d.sbscr_ref)!;
+        if (s.sts_cd !== 'ACT') { o.sts_cd = 'RJCT'; throw new BankError(422, 'SBSCR_INACTIVE', 'subscription already cancelled'); }
+        s.sts_cd = 'CNL';
+        c.journal.push({ type: 'subscription_cancelled', merchant: s.mrch_nm });
+        break;
+      }
+    }
+    o.sts_cd = 'DONE';
+    return o;
+  }
 }

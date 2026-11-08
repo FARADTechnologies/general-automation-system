@@ -6,6 +6,9 @@ limits:
   bill:
     per_tx: { AZN: 500 }
     daily: { AZN: 1500 }
+  topup:
+    per_tx: { AZN: 100 }
+    daily: { AZN: 200 }
 new_payee:
   # A first payment to a payee that is at least this share of the source balance
   # needs an extra, explicit acknowledgement on the bank screen.

@@ -24,6 +24,8 @@ export interface Capability {
   token_args?: Record<string, string>;
   /** Words that must appear in the user's own request before this action may be prepared. */
   intent_terms?: string[];
+  /** Outputs are deterministic bank calculations; the agent may use their figures as derived values. */
+  derived?: boolean;
   lookups?: Record<string, LookupSpec>;
   request: RequestSpec;
   response?: ResponseSpec;

@@ -14,6 +14,7 @@ export interface Ledger {
     user_texts: string[];
     amounts: number[];
     derived: number[];
+    template_amounts: number[];
     currencies: string[];
     tokens: Record<string, TokenRecord>;
     tool_numbers: number[];
@@ -25,7 +26,7 @@ export interface Ledger {
 export function newLedger(goal: string): Ledger {
   return {
     task_id: 'task_' + randomBytes(5).toString('hex'), goal, steps: [], pending: null,
-    evidence: { user_texts: [], amounts: [], derived: [], currencies: [], tokens: {}, tool_numbers: [] },
+    evidence: { user_texts: [], amounts: [], derived: [], template_amounts: [], currencies: [], tokens: {}, tool_numbers: [] },
     risk_flags: [], guard_holds: 0,
   };
 }

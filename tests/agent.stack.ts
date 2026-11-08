@@ -18,12 +18,13 @@ const listen = (srv: { listen: (p: number, h: string, cb: () => void) => unknown
   });
 
 export async function startFullStack(model: ModelClient, opts: { stepMs?: number } = {}) {
-  const core = createCoreBankApp({ serviceKey: KEYS.core });
+  const core = createCoreBankApp({ serviceKey: KEYS.core, kbDir: resolve(ROOT, 'domains/bank/kb') });
   const coreSrv = await listen(core.app as never);
   const cfg: RuntimeConfig & { webhookSecret: string } = {
     bridgeUrl: '', agentKey: KEYS.agent, webhookSecret: KEYS.hook, model,
     loop: { ...DEFAULT_CONFIG, systemPrompt: `${CORE_PROMPT}\n\n${readFileSync(resolve(ROOT, 'domains/bank/prompt.md'), 'utf8')}` },
     choreographyStepMs: opts.stepMs ?? 5, confirmTimeoutMs: 20_000, maxInputsPerMinute: 100,
+    screens: JSON.parse(readFileSync(resolve(ROOT, 'domains/bank/screens.json'), 'utf8')),
   };
   const agent = createAgentServer(cfg);
   const agentSrv = await new Promise<{ url: string; close: () => void }>((res) => {

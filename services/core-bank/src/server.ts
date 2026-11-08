@@ -4,12 +4,13 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { timingSafeEqual } from 'node:crypto';
 import { CoreBank, BankError } from './bank.ts';
+import { mountExtras } from './extras.ts';
 
 const safeEq = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 const last4 = (s: string) => s.slice(-4);
 const major = (minor: number) => Math.round(minor) / 100;
 
-export function createCoreBankApp(opts: { serviceKey: string; bank?: CoreBank }) {
+export function createCoreBankApp(opts: { serviceKey: string; bank?: CoreBank; kbDir?: string }) {
   const bank = opts.bank ?? new CoreBank();
   const app = express();
   app.use(express.json({ limit: '64kb' }));
@@ -66,7 +67,7 @@ export function createCoreBankApp(opts: { serviceKey: string; bank?: CoreBank })
     res.json({ items });
   });
   internal.get('/v3/cust/:cust/sbscr', (req, res) => { res.json({ items: bank.cust(req.params.cust).data.sbscr }); });
-  internal.get('/v3/cust/:cust/tmpl', (req, res) => { res.json({ items: bank.cust(req.params.cust).data.tmpl }); });
+  internal.get('/v3/cust/:cust/tmpl', (req, res) => { const d = bank.cust(req.params.cust).data; res.json({ items: d.tmpl.map((t) => ({ ...t, pye_nm: t.bnfcry_ref ? d.bnfcry.find((b) => b.bnfcry_ref === t.bnfcry_ref)?.bnfcry_nm : d.blrs.find((b) => b.blr_cd === t.blr_cd)?.blr_nm })) }); });
   internal.get('/v3/cust/:cust/blr', (req, res) => { res.json({ items: bank.cust(req.params.cust).data.blrs }); });
   internal.get('/v3/ref/brnch', (_req, res) => { res.json({ items: bank.cust(firstCust(bank)).data.brnch }); });
   internal.get('/v3/ref/fx', (_req, res) => { res.json({ items: bank.cust(firstCust(bank)).data.fx }); });
@@ -94,6 +95,7 @@ export function createCoreBankApp(opts: { serviceKey: string; bank?: CoreBank })
     res.json({ ok: true });
   });
 
+  mountExtras(internal, bank, { kbDir: opts.kbDir });
   app.use('/internal', internal);
 
   // ---------------- app-facing API (the phone app's own backend) ----------------

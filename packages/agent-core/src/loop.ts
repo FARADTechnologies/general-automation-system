@@ -48,6 +48,9 @@ export interface SessionState { messages: MessageParam[]; ledger: Ledger | null;
 export const newSessionState = (): SessionState => ({ messages: [], ledger: null, llmCalls: 0, spendUsd: 0 });
 
 export interface LoopConfig { systemPrompt: string; maxIterations: number; sessionCallCap: number; sessionSpendCapUsd: number; limits: GuardLimits }
+
+/** A tool the runtime executes itself (no bank call), e.g. opening a screen or a human handoff. */
+export interface LocalTool { meta: ToolMeta; run(input: Record<string, unknown>, ctx: { ledger: Ledger; traceId: string }): Promise<{ ok: boolean; content: string }> }
 export const DEFAULT_CONFIG: Omit<LoopConfig, 'systemPrompt'> = { maxIterations: 10, sessionCallCap: 60, sessionSpendCapUsd: 2, limits: DEFAULT_LIMITS };
 
 export interface TurnResult {
@@ -78,7 +81,7 @@ const SAFE_ANSWER = 'I could not put that answer together reliably. The details 
 export async function runTurn(
   state: SessionState,
   userText: string,
-  deps: { model: ModelClient; tools: ToolPort; events: TurnEvents; config: LoopConfig; signal?: AbortSignal },
+  deps: { model: ModelClient; tools: ToolPort; events: TurnEvents; config: LoopConfig; signal?: AbortSignal; local?: LocalTool[] },
 ): Promise<TurnResult> {
   const t0 = Date.now();
   const traceId = 'tr_' + randomBytes(6).toString('hex');
@@ -111,7 +114,8 @@ export async function runTurn(
   state.messages.push({ role: 'system', content: renderLedger(ledger) } as MessageParam);
 
   // ---- 3) tools ----
-  let tools: ToolMeta[] = [TASK_PLAN_TOOL, ...(await deps.tools.listTools())].sort((a, b) => a.name.localeCompare(b.name));
+  const local = new Map((deps.local || []).map((l) => [l.meta.name, l]));
+  let tools: ToolMeta[] = [TASK_PLAN_TOOL, ...(deps.local || []).map((l) => l.meta), ...(await deps.tools.listTools())].sort((a, b) => a.name.localeCompare(b.name));
   const byName = new Map(tools.map((t) => [t.name, t]));
   const turnState = { callsThisTurn: 0, seen: new Map<string, number>() };
   let linted = false;
@@ -190,6 +194,13 @@ export async function runTurn(
         return { type: 'tool_result', tool_use_id: tu.id, content: '{"ok":true,"note":"Plan recorded and shown to the user."}' };
       }
 
+      const lt = local.get(tu.name);
+      if (lt) {
+        const r = await lt.run(input, { ledger, traceId });
+        res.toolCalls.push({ name: tu.name, input, ok: r.ok });
+        trace({ kind: 'tool_result', name: tu.name, decision: r.ok ? 'ok' : 'error', detail: { agent_sees: r.content } });
+        return { type: 'tool_result', tool_use_id: tu.id, content: r.content, is_error: !r.ok };
+      }
       events.status('acting', meta!.capability);
       const step = ledger.steps.find((s) => s.capability === meta!.capability && (s.status === 'pending' || s.status === 'running'));
       if (step) { step.status = 'running'; events.ledger(ledger); }
@@ -267,4 +278,9 @@ function recordEvidence(ledger: Ledger, meta: ToolMeta, input: Record<string, un
   }
   const nums = numbersIn(data);
   ledger.evidence.tool_numbers = [...new Set([...ledger.evidence.tool_numbers, ...nums])].slice(-2000);
+  // bank-calculated figures may be used as amounts (e.g. a split share); template amounts only with template provenance
+  if (meta.derived) ledger.evidence.derived = [...new Set([...ledger.evidence.derived, ...nums])];
+  if (Object.values(meta.tokenProvenance || {}).includes('template')) {
+    ledger.evidence.template_amounts = [...new Set([...ledger.evidence.template_amounts, ...rows.map((r) => Number(r?.amount)).filter((n) => Number.isFinite(n) && n > 0)])];
+  }
 }

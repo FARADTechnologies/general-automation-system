@@ -1,5 +1,6 @@
 // Handoff notice overlay (ui.modal.kind === 'handoff'): the request went to a person.
 import React from 'react';
+import '../../styles/agent.css';
 import { Headset, Clock } from 'lucide-react';
 import { hub, useUi } from '../../runtime/hub.ts';
 import { Loading } from './States';

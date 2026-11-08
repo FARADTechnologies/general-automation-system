@@ -145,6 +145,16 @@ export function createBridge(opts: BridgeOptions) {
     const r = await engine.resolveConfirm(s, req.params.id, req.body || {});
     res.status(r.status).json(r.body);
   });
+  // Presentation view of what the bank side saw for one demo session: read-only, masked.
+  pub.get('/session/:s/bank-view', (req, res) => {
+    const s = req.params.s;
+    if (!SESSION_RE.test(s)) { res.status(400).json({ code: 'SESSION_REQUIRED' }); return; }
+    const rows = audit.list({ session: s, limit: 80 })
+      .filter((r) => ['prepare', 'confirm', 'policy', 'confirm.expired', 'vault.ingress'].includes(r.event) || (r.event === 'tool.call' && r.decision !== 'ok'))
+      .slice(0, 25)
+      .map((r) => ({ seq: r.seq, ts: r.ts, trace_id: r.trace_id, actor: r.actor, event: r.event, capability: r.capability, decision: r.decision, detail: r.detail }));
+    res.json({ items: rows });
+  });
   app.use('/bridge', pub);
 
   // ---------------- bank console ----------------

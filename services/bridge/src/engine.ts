@@ -237,7 +237,11 @@ export class Engine {
       dedupeKey, scope, policyRecord: { group: p.limit_group, currency, amount },
     };
     this.prepared.set(id, po);
-    this.d.audit.write({ trace_id, session, actor: 'bridge', event: 'prepare', capability: cap.id, decision: 'awaiting_confirmation', detail: { prepared_id: id, risk: cap.risk, level: po.level, display, warnings: po.warnings, payload_hash: po.payloadHash } });
+    this.d.audit.write({ trace_id, session, actor: 'bridge', event: 'prepare', capability: cap.id, decision: 'awaiting_confirmation', detail: {
+      prepared_id: id, risk: cap.risk, level: po.level, display, warnings: po.warnings, payload_hash: po.payloadHash,
+      // what the bank's internal API received, with identifiers cut to their last four characters
+      internal_request: { method: cap.request.method, path: cap.request.path, body: maskDeep(body) },
+    } });
     this.d.notify?.({ type: 'prepared.created', session, prepared_id: id, capability: cap.id });
     return { ok: true, data: this.agentView(po) };
   }
@@ -414,3 +418,11 @@ export class Engine {
 }
 
 const fail = (code: string, message: string): ToolResult => ({ ok: false, error: { code, message } });
+
+/** Cut long identifiers (account numbers, card numbers, internal refs) to their last four characters. */
+export function maskDeep(v: unknown): unknown {
+  if (typeof v === 'string') return /\d{6,}/.test(v) || /^[A-Z]{2}\d{2}[A-Z0-9]{10,}$/.test(v) ? '…' + v.slice(-4) : v;
+  if (Array.isArray(v)) return v.map(maskDeep);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, k === 'idmp_key' ? '…' + String(x).slice(-4) : maskDeep(x)]));
+  return v;
+}

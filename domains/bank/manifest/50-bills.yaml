@@ -101,6 +101,7 @@ ui:
   route: /app/payments/bill
   form: bill
   fields:
+    - { target: bill-biller, display: biller }
     - { target: bill-account, display: subscriber }
     - { target: bill-amount, display: amount }
   submit: bill-pay

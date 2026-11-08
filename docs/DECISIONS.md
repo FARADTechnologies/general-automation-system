@@ -32,3 +32,9 @@ One line per reversible decision. Newest at the bottom.
 - 2026-11-08 After a prepare, the agent loop waits inside the tool call for the customer's decision and returns the Bridge-verified outcome as the tool result; the model never sees a pending action as done.
 - 2026-11-08 A state-changing call requires one of the capability's `intent_terms` in the user's own words for the current task (blocks injection-driven actions).
 - 2026-11-08 Contact search prefers exact name-word matches, then word prefixes, so "Ali" does not return "Aliyeva".
+- 2026-11-08 `apps/web` ports the designer's Caspia screens; a compatibility store keeps their `useStore()` API, with accounts, cards, contacts, transactions, bills and templates live from the bank and other products as static demo content.
+- 2026-11-08 The lock screen is off in the demo so judges land on the home screen; the bank confirmation keeps its own (mocked) biometric/PIN step.
+- 2026-11-08 Manual money actions in the designer screens show an honest message pointing to the assistant; the contact-transfer form's Continue sends the typed request through the assistant.
+- 2026-11-08 Runtime-owned screens live in `apps/web/src/app/core-screens/`, outside the designer's paths, so the two never edit the same files.
+- 2026-11-08 The stage reads a read-only, masked "bank view" of its own session from the Bridge to show what the bank received.
+- 2026-11-08 Dev gateway is Vite's proxy; production uses a small gateway with the same routes (M4).

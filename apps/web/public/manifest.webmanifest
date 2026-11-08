@@ -1,0 +1,9 @@
+{
+  "name": "Caspia Bank",
+  "short_name": "Caspia",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#0b1b3f",
+  "theme_color": "#0b1b3f",
+  "icons": []
+}

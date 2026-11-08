@@ -20,12 +20,13 @@ docs/                brief, audit, contract, reliability, pitch facts
 ## Commands
 
 ```bash
-corepack enable && pnpm install     # once
-pnpm dev                            # all services + web, local
-pnpm test                           # unit + invariant tests
-pnpm eval:dev                       # dev evaluation set
-pnpm check:demo                     # pre-demo health check
+pnpm install                        # once (pnpm 10)
+pnpm dev                            # core-bank :4100, bridge :4200, agent :4300, web :5173
+pnpm test                           # unit, invariant and scripted agent tests (no model calls)
+LIVE=1 pnpm vitest run tests/agent.live.test.ts   # live model scenarios (costs money)
 bash scripts/secret-scan.sh         # run the commit secret scan by hand
+
+# open http://localhost:5173/app?s=demo1 (phone) and http://localhost:5173/stage?s=demo1 (projector)
 ```
 
 Secrets live only in the local `.env` (see `.env.example`). The pre-commit hook in `.githooks/` blocks key patterns; enable it with `git config core.hooksPath .githooks`.

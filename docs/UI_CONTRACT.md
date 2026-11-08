@@ -63,9 +63,9 @@ Required IDs (V0 and P0):
 | Transfer form | `transfer-recipient`, `transfer-amount`, `transfer-source`, `transfer-continue` |
 | Contact chooser | `chooser-option-<n>` (1-based), `chooser-cancel` |
 | Cards | `card-<last4>`, `card-block`, `card-unblock`, `card-replace` |
-| Bills | `bill-<billerId>`, `bill-account`, `bill-amount`, `bill-pay`, `bills-pay-all` |
+| Bills | `bill-<billerId>`, `bill-biller`, `bill-account`, `bill-amount`, `bill-pay`, `bills-pay-all` |
 | Subscriptions | `sub-<subId>`, `sub-cancel-<subId>` |
-| Confirmation | `confirm-approve`, `confirm-cancel`, `confirm-biometric`, `confirm-pin-<digit>` |
+| Confirmation | `confirm-approve`, `confirm-deny`, `confirm-cancel`, `confirm-ack`, `fingerprint-sensor` |
 | Agent dock | `agent-text-input`, `agent-send`, `agent-mic`, `agent-stop`, `agent-status`, `agent-try-saying` |
 
 The manifest's `ui.fields[].target` refers to these IDs.

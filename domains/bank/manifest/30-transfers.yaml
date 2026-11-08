@@ -46,6 +46,7 @@ input_schema:
     source_account: { type: string, description: "Optional account token from accounts.list" }
   required: [contact, amount, currency]
   additionalProperties: false
+intent_terms: [send, transfer, pay, give, wire, move, split, lend, return]
 critical_args:
   contact: { token: contact, provenance: [resolved_contact, ingress_token, template] }
   amount: { provenance: [user_stated, derived, template] }

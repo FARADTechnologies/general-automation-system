@@ -1,0 +1,12 @@
+{
+  "name": "@gas/agent-core",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.6.0",
+    "ajv": "8.17.1"
+  }
+}

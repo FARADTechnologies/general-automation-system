@@ -11,6 +11,8 @@ export interface BridgeTool {
   kind: 'read' | 'prepare';
   risk: string;
   criticalArgs: Record<string, { token?: string; provenance?: string[] }>;
+  intentTerms: string[];
+  tokenProvenance: Record<string, string>;
 }
 
 export type CallOutcome = { ok: true; data: any; text: string } | { ok: false; error: { code: string; message: string; retryable?: boolean }; text: string };
@@ -40,7 +42,7 @@ export class BridgeSession {
     const { tools } = await (await this.conn()).listTools();
     return tools.map((t) => {
       const m = (t._meta || {}) as Record<string, any>;
-      return { name: t.name, description: t.description || '', inputSchema: t.inputSchema as Record<string, unknown>, capability: m.capability || t.name, kind: m.kind, risk: m.risk, criticalArgs: m.critical_args || {} };
+      return { name: t.name, description: t.description || '', inputSchema: t.inputSchema as Record<string, unknown>, capability: m.capability || t.name, kind: m.kind, risk: m.risk, criticalArgs: m.critical_args || {}, intentTerms: m.intent_terms || [], tokenProvenance: m.token_provenance || {} };
     });
   }
 

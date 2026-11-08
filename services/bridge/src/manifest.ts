@@ -22,6 +22,8 @@ export interface Capability {
   input_schema: Record<string, unknown>;
   critical_args?: Record<string, ArgSpec>;
   token_args?: Record<string, string>;
+  /** Words that must appear in the user's own request before this action may be prepared. */
+  intent_terms?: string[];
   lookups?: Record<string, LookupSpec>;
   request: RequestSpec;
   response?: ResponseSpec;

@@ -41,6 +41,7 @@ input_schema:
     source_account: { type: string, description: "Optional account token from accounts.list" }
   required: [bill]
   additionalProperties: false
+intent_terms: [pay, bill, bills, utility, utilities, electricity, water, gas, mobile, settle]
 critical_args:
   bill: { token: bill, provenance: [bank_record] }
 token_args:

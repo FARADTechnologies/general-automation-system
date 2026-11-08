@@ -24,3 +24,11 @@ One line per reversible decision. Newest at the bottom.
 - 2026-11-08 Bridge notifies the agent of confirmation outcomes through an HMAC-signed webhook.
 - 2026-11-08 Policy limits are re-checked at commit time, not only at prepare time.
 - 2026-11-08 Merchant names, counterparties and memos are returned under `untrusted_text` in tool output.
+- 2026-11-08 Runtime model `claude-sonnet-5-5`, effort `medium`, thinking `between_tools` (lowest setting; `disabled` is rejected on this model). To be re-chosen from eval data in M6.
+- 2026-11-08 Correction to the brief: Sonnet 5.5 cache reads cost $0.20/MTok, not $0.10. Haiku 5.5 input $0.10, output $0.50 as stated.
+- 2026-11-08 Server-side refusal fallback (`fallbacks: "default"`) is on; it only re-routes safety declines and can be turned off with `AGENT_FALLBACK=0`.
+- 2026-11-08 Tools are sent with `strict: true`; JSON-schema keywords the API cannot enforce (min/max, lengths) are stripped from the model copy and still enforced by the agent guard and the Bridge.
+- 2026-11-08 The task ledger is appended as a mid-conversation `system` message, so the history stays append-only and the prompt cache stays valid.
+- 2026-11-08 After a prepare, the agent loop waits inside the tool call for the customer's decision and returns the Bridge-verified outcome as the tool result; the model never sees a pending action as done.
+- 2026-11-08 A state-changing call requires one of the capability's `intent_terms` in the user's own words for the current task (blocks injection-driven actions).
+- 2026-11-08 Contact search prefers exact name-word matches, then word prefixes, so "Ali" does not return "Aliyeva".

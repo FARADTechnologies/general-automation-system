@@ -20,7 +20,9 @@
     "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "4.1.12",
-    "@modelcontextprotocol/sdk": "1.32.2"
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@anthropic-ai/sdk": "1.6.0",
+    "@gas/agent-core": "workspace:*"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

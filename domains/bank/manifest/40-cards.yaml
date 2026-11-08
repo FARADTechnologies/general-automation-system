@@ -12,6 +12,7 @@ input_schema:
     card: { type: string, description: "Card token from cards.list" }
   required: [card]
   additionalProperties: false
+intent_terms: [block, freeze, lost, stolen, lock, disable, suspend]
 critical_args:
   card: { token: card, provenance: [bank_record] }
 lookups:

@@ -116,7 +116,12 @@ export class Engine {
         name: c.toolName,
         description: `${c.llm_description.trim()} [capability ${c.id}; kind ${c.kind}; risk ${c.risk}${c.kind === 'prepare' ? '; prepares only, the customer confirms on the bank screen' : ''}]`,
         inputSchema: c.input_schema,
-        _meta: { capability: c.id, kind: c.kind, risk: c.risk, critical_args: c.critical_args || {} },
+        _meta: {
+          capability: c.id, kind: c.kind, risk: c.risk, critical_args: c.critical_args || {},
+          intent_terms: c.intent_terms || [],
+          // which output fields carry tokens, and with what provenance (for the agent's evidence set)
+          token_provenance: Object.fromEntries(Object.entries(c.response?.fields || {}).flatMap(([k, f]) => (typeof f === 'object' && f.token ? [[k, f.token.provenance]] : []))),
+        },
       }));
     tools.push(
       { name: 'prepared_status', description: 'Read the status of a prepared action (awaiting_confirmation, committed, denied, expired, failed) and whether the bank verified the result. Read-only.', inputSchema: { type: 'object', properties: { prepared_id: { type: 'string' } }, required: ['prepared_id'], additionalProperties: false }, _meta: { capability: 'prepared.status', kind: 'read', risk: 'R0', critical_args: {} } },

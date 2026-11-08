@@ -51,7 +51,13 @@ export function createCoreBankApp(opts: { serviceKey: string; bank?: CoreBank })
   internal.get('/v3/cust/:cust/bnfcry', (req, res) => {
     const q = String(req.query.q || '').toLowerCase().trim();
     let items = bank.cust(req.params.cust).data.bnfcry;
-    if (q) items = items.filter((b) => b.bnfcry_nm.toLowerCase().split(/\s+/).some((w) => w.startsWith(q)) || b.bnfcry_nm.toLowerCase().includes(q));
+    // every query word must start a word of the name: "ali" finds Ali Mammadov, not Leyla Aliyeva
+    const qw = q.split(/\s+/).filter(Boolean);
+    if (qw.length) {
+      const words = (nm: string) => nm.toLowerCase().split(/\s+/);
+      const exact = items.filter((b) => qw.every((w) => words(b.bnfcry_nm).includes(w)));
+      items = exact.length ? exact : items.filter((b) => qw.every((w) => words(b.bnfcry_nm).some((n) => n.startsWith(w))));
+    }
     res.json({ items });
   });
   internal.get('/v3/cust/:cust/bll', (req, res) => {

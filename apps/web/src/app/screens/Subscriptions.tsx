@@ -1,39 +1,41 @@
-// /app/subscriptions: subscriptions charged to the customer's cards, with cancel.
-// Cancel is an R2 action: the button asks the runtime to prepare it; the bank confirmation follows.
+// /subscriptions: subscriptions charged to the customer's cards, with cancel (subscription.cancel.prepare, R2).
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Repeat } from 'lucide-react';
-import { useBank, useUi } from '../../runtime';
+import { hub, useUi } from '../../runtime/hub.ts';
+import { useBank } from '../../runtime/bank.ts';
 import { Loading, Empty, ErrorState } from '../components/States';
+import { money, masked, shortDate } from '../components/format';
 
-type Sub = { id: string; name: string; amount: string; cardMasked: string; next?: string; status: 'active' | 'cancelled' };
+type Sub = { id: string; merchant: string; amount: number; currency: string; cardLast4: string; nextCharge?: string; status: string };
 
 export default function Subscriptions() {
-  const { intent } = useUi();
-  // TODO(data): subscriptions.list, with the monthly total formatted by the bank.
-  const subs = useBank('subscriptions');
+  const nav = useNavigate();
+  const subs = useBank<{ items: Sub[] }>('subscriptions');
+  const busy = useUi((s) => !['idle', 'paused', 'error', 'handoff'].includes(s.agent.status));
+  const items = subs.data?.items || [];
   return (
-    <section className="screen no-tabs subs-screen">
-      <header className="hdr"><button className="icon-btn" aria-label="Back" onClick={() => intent({ type: 'navigate', to: '/app/payments' })} data-nav-id="back">‹</button><h1>Subscriptions</h1><span /></header>
+    <main className="screen no-tabs screen-enter subs-screen">
+      <header className="hdr"><button className="icon-btn" aria-label="Back" onClick={() => nav(-1)} data-nav-id="back">‹</button><h1>Subscriptions</h1><span /></header>
       {subs.status === 'loading' && <Loading />}
-      {subs.status === 'error' && <ErrorState onRetry={subs.retry} />}
-      {subs.status === 'ready' && subs.data.items.length === 0 && <Empty title="No subscriptions" sub="Nothing charges your cards every month." />}
-      {subs.status === 'ready' && subs.data.items.length > 0 && (
+      {subs.status === 'error' && <ErrorState onRetry={subs.reload} />}
+      {subs.status === 'ready' && items.length === 0 && <Empty title="No subscriptions" sub="Nothing charges your cards regularly." />}
+      {subs.status === 'ready' && items.length > 0 && (
         <>
-          <div className="block"><span className="eyebrow">Every month</span><span className="num subs-total" data-nav-id="subs-total">{subs.data.monthlyTotal}</span></div>
           <ul className="block flush subs-list">
-            {subs.data.items.map((s: Sub) => (
+            {items.map((s) => (
               <li key={s.id} className="li" data-nav-id={`sub-${s.id}`}>
                 <span className="li-ico" aria-hidden="true"><Repeat size={18} /></span>
-                <span className="li-main"><span className="li-title">{s.name}</span><span className="li-sub num">{s.amount} · {s.cardMasked}{s.status === 'active' && s.next ? ` · next ${s.next}` : ''}</span></span>
-                {s.status === 'cancelled'
-                  ? <span className="pill soft">Cancelled</span>
-                  : <button type="button" className="btn sm" onClick={() => intent({ type: 'tap', target: `sub-cancel-${s.id}` })} data-nav-id={`sub-cancel-${s.id}`} aria-label={`Cancel ${s.name}`}>Cancel</button>}
+                <span className="li-main"><span className="li-title">{s.merchant}</span><span className="li-sub num">{money(s.amount, s.currency)} · {masked(s.cardLast4)}{s.status === 'active' && s.nextCharge ? ` · next ${shortDate(s.nextCharge)}` : ''}</span></span>
+                {s.status === 'active'
+                  ? <button type="button" className="btn sm" disabled={busy} onClick={() => hub.input(`Cancel my ${s.merchant} subscription`)} data-nav-id={`sub-cancel-${s.id}`} aria-label={`Cancel ${s.merchant}`}>Cancel</button>
+                  : <span className="pill soft">Cancelled</span>}
               </li>
             ))}
           </ul>
-          <p className="tiny muted">Cancelling stops future charges on your card. You keep access until the paid period ends.</p>
+          <p className="tiny muted">Cancelling stops future charges on your card. The bank asks you to confirm first.</p>
         </>
       )}
-    </section>
+    </main>
   );
 }

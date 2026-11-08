@@ -1,0 +1,43 @@
+/* Refinements for the core full-screen confirmation (app/confirm/BankConfirm.tsx).
+   Only .bank-confirm* selectors; loads after runtime.css. Goal: readable at 40-50+,
+   amount first, large approve / cancel targets, a clear fingerprint step. */
+
+/* calmer header, the brand line stays */
+.bank-confirm-head { padding: 16px 18px 12px; }
+.bank-confirm-brand { font-size: 14px; letter-spacing: .01em; }
+
+/* body text one step larger */
+.bank-confirm-body { gap: 16px; font-size: 16px; }
+.bank-confirm-body > .eyebrow { font-size: 13px; letter-spacing: .06em; }
+
+/* the amount row leads: big, first, and full width */
+.bank-confirm-rows { display: flex; flex-direction: column; padding: 4px 18px; border-radius: 20px; }
+.bank-confirm-row { padding: 14px 0; font-size: 16px; align-items: baseline; }
+.bank-confirm-row.k-amount { order: -1; flex-direction: column; align-items: flex-start; gap: 2px; padding: 16px 0 14px; }
+.bank-confirm-row.k-amount dt { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+.bank-confirm-row.k-amount dd { font-size: 36px; line-height: 1.1; text-align: left; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.bank-confirm-row.k-fee dd, .bank-confirm-row.k-source dd { font-weight: 600; }
+.bank-confirm-row dd { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+/* new-payee and risk warnings: amber, readable, icon kept */
+.bank-confirm-warn { font-size: 15.5px; line-height: 1.4; padding: 12px 14px; color: var(--text); background: color-mix(in srgb, #e0a100 16%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, #e0a100 45%, transparent); }
+.bank-confirm-warn svg { flex: none; margin-top: 2px; color: #a86f00; }
+.bank-confirm-ack { font-size: 16px; min-height: 48px; padding: 4px 2px; }
+.bank-confirm-ack input { width: 24px; height: 24px; accent-color: var(--sea); flex: none; }
+
+/* expiry as a quiet chip */
+.bank-confirm-expiry { align-self: flex-start; padding: 6px 12px; border-radius: 999px; background: var(--surface-2); font-size: 13.5px !important; font-variant-numeric: tabular-nums; }
+
+/* approve / cancel: 56px targets */
+.bank-confirm-body > .btn { min-height: 56px; font-size: 18px; border-radius: 16px; }
+.bank-confirm-body > .btn.primary { margin-top: 4px; }
+
+/* fingerprint step (core Biometric inside the confirmation) */
+.bank-confirm .bio { gap: 16px; padding-top: 28px; }
+.bank-confirm .bio strong { font-size: 21px; }
+.bank-confirm .bio-ring { width: 124px; height: 124px; }
+.bank-confirm .bio .btn { min-height: 48px; padding: 0 20px; font-size: 16px; }
+.bank-confirm .pin-dots, .bank-confirm .keypad button { font-size: 22px; }
+
+.bank-confirm :focus-visible { outline: 3px solid var(--sea); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .bank-confirm { animation: none; } }

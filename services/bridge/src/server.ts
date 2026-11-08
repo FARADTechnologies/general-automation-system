@@ -13,9 +13,13 @@ import { Vault, maskPan, maskPhone } from './vault.ts';
 import { Policy } from './policy.ts';
 import { AuditLog } from './audit.ts';
 import { Engine, CoreClient, type BridgeEvent } from './engine.ts';
+import { consoleRouter } from './console.ts';
 
 export interface BridgeOptions {
   manifestDirs: string[];
+  /** Manifests the bank can switch on from the console without a deploy. */
+  optionalDirs?: string[];
+  consolePasscode?: string;
   policyPath?: string;
   coreBankUrl: string;
   coreBankKey: string;
@@ -37,7 +41,13 @@ const cookie = (req: Request, name: string) => {
 };
 
 export function createBridge(opts: BridgeOptions) {
-  let caps: Map<string, LoadedCapability> = loadManifests(opts.manifestDirs);
+  const enabledOptional = new Set<string>();
+  const loadAll = () => {
+    const base = loadManifests(opts.manifestDirs);
+    for (const [id, c] of loadManifests(opts.optionalDirs || [])) if (enabledOptional.has(id) && !base.has(id)) base.set(id, { ...c, source_file: 'optional:' + c.source_file });
+    return base;
+  };
+  let caps: Map<string, LoadedCapability> = loadAll();
   const vault = new Vault();
   const policy = new Policy(opts.policyPath);
   const audit = new AuditLog(opts.auditPath);
@@ -167,6 +177,17 @@ export function createBridge(opts: BridgeOptions) {
     res.json({ items: rows });
   });
   app.use('/bridge', pub);
+  app.use('/bridge/console', consoleRouter({
+    passcode: opts.consolePasscode || '', secureCookies: opts.secureCookies, caps: () => caps, policy, audit, handoffs,
+    optional: () => [...loadManifests(opts.optionalDirs || []).values()].map((c) => ({ id: c.id, title: c.title, kind: c.kind, risk: c.risk, enabled: enabledOptional.has(c.id) })),
+    setOptional: (id, enabled) => {
+      if (!loadManifests(opts.optionalDirs || []).has(id)) return false;
+      if (enabled) enabledOptional.add(id); else enabledOptional.delete(id);
+      caps = loadAll(); // hot reload: the agent re-lists tools on its next turn
+      return true;
+    },
+    notify: () => notify({ type: 'capabilities.changed' }),
+  }));
 
   // ---------------- bank console ----------------
   const admin = express.Router();
@@ -182,7 +203,7 @@ export function createBridge(opts: BridgeOptions) {
     res.json({ ok: true, killed: policy.isKilled(req.params.id) });
   });
   admin.post('/reload', (_req, res) => {
-    caps = loadManifests(opts.manifestDirs);
+    caps = loadAll();
     audit.write({ trace_id: 'console', session: 'bank', actor: 'operator', event: 'manifest.reload', decision: 'ok', detail: { count: caps.size } });
     notify({ type: 'capabilities.changed' });
     res.json({ ok: true, count: caps.size });
@@ -199,5 +220,5 @@ export function createBridge(opts: BridgeOptions) {
     res.status(500).json({ code: 'BRIDGE_ERROR', message: (err as Error)?.message?.slice(0, 200) });
   });
 
-  return { app, engine, vault, policy, audit, core, reload: () => { caps = loadManifests(opts.manifestDirs); }, close: () => clearInterval(sweeper) };
+  return { app, engine, vault, policy, audit, core, reload: () => { caps = loadAll(); }, close: () => clearInterval(sweeper) };
 }

@@ -2,10 +2,11 @@
 // The designer may restyle them through CSS; field IDs follow docs/UI_CONTRACT.md.
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Receipt } from 'lucide-react';
-import { Header, Avatar } from '../components/ui.jsx';
+import { Send, Receipt, Repeat, Headset } from 'lucide-react';
+import { Header, Avatar, Li, Empty } from '../components/ui.jsx';
 import { useStore } from '../store/Store.jsx';
 import { useField, hub, useUi } from '../../runtime/hub.ts';
+import { useBank } from '../../runtime/bank.ts';
 
 function Field({ form, id, label, placeholder, big = false }) {
   const f = useField(form, id);
@@ -61,7 +62,45 @@ export function BillPay() {
   );
 }
 
+export function Subscriptions() {
+  const subs = useBank('subscriptions');
+  const items = subs.data?.items || [];
+  return (
+    <main className="screen no-tabs screen-enter">
+      <Header title="Subscriptions" />
+      {subs.status === 'loading' && <Empty icon={<Repeat size={26} />} title="Loading subscriptions…" />}
+      {subs.status === 'error' && <Empty icon={<Repeat size={26} />} title="Cannot load subscriptions" sub="Pull to try again." />}
+      {subs.status === 'ready' && !items.length && <Empty icon={<Repeat size={26} />} title="No subscriptions" sub="Card subscriptions will appear here." />}
+      {items.length > 0 && (
+        <div className="block flush">
+          {items.map((s) => (
+            <Li key={s.id} id={'sub-' + s.id} icon={<Repeat size={19} />} title={s.merchant}
+              sub={s.status === 'active' ? `Next charge ${s.nextCharge} · card •••• ${s.cardLast4}` : 'Cancelled'}
+              right={<span className="num" style={s.status !== 'active' ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}>{s.amount.toFixed(2)} {s.currency}</span>} />
+          ))}
+        </div>
+      )}
+      <p className="tiny muted" style={{ textAlign: 'center' }}>To cancel one, ask the assistant, for example “Cancel my Netflix subscription”.</p>
+    </main>
+  );
+}
+
+export function HandoffNotice() {
+  const modal = useUi((s) => s.modal);
+  if (modal?.kind !== 'handoff') return null;
+  return (
+    <div className="chooser-backdrop" role="dialog" aria-modal="true" aria-label="Bank specialist">
+      <div className="chooser">
+        <strong><Headset size={18} /> A bank specialist has your request</strong>
+        <p className="small muted" style={{ margin: 0 }}>Ticket {modal.ticketId}. The specialist already sees what the assistant did and what is pending, so you will not have to repeat anything.</p>
+        <button className="btn block" data-nav-id="handoff-close" onClick={() => hub.intent({ type: 'modal.close' })}>OK</button>
+      </div>
+    </div>
+  );
+}
+
 export const CORE_SCREENS = [
   ['/transfers/contact', TransferContact],
   ['/payments/bill', BillPay],
+  ['/subscriptions', Subscriptions],
 ];

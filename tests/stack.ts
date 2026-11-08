@@ -22,6 +22,8 @@ export async function startStack(opts: { manifestDirs?: string[]; webhook?: (e: 
   const coreSrv = await listen(core.app);
   const bridge = createBridge({
     manifestDirs: opts.manifestDirs || [resolve(ROOT, 'domains/bank/manifest')],
+    optionalDirs: [resolve(ROOT, 'domains/bank/manifest-optional')],
+    consolePasscode: 'operator-test-pass',
     policyPath: resolve(ROOT, 'domains/bank/policy.yaml'),
     coreBankUrl: coreSrv.url, coreBankKey: keys.core, agentKey: keys.agent, adminKey: keys.admin,
     now: () => clock,

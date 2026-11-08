@@ -1,0 +1,23 @@
+# Optional capability: not exposed until the bank enables it in the console.
+# Used to prove that a new capability needs no code change when the internal endpoint exists.
+id: fx.rates
+title: Exchange rates
+llm_description: >
+  Today's buy and sell exchange rates of the bank for USD, EUR and TRY against AZN.
+kind: read
+risk: R0
+input_schema:
+  type: object
+  properties: {}
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/ref/fx
+response:
+  items: items
+  fields:
+    currency: ccy
+    bank_buys_at: buy
+    bank_sells_at: sell
+ui:
+  route: /app/exchange

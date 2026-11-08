@@ -1,0 +1,3 @@
+/* /app/transfers/template/:id */
+.tpl-head { gap: 12px; align-items: center; }
+.tpl-amount { font-size: 28px; font-weight: 700; }

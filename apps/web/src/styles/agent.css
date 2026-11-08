@@ -1,0 +1,54 @@
+/* Agent dock, plan strip, contact chooser and handoff notice.
+   Large targets (48px+) and 17px+ text: the main customers are 40-50+. */
+.agent-dock { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 8px 24px rgba(6, 18, 22, .08); }
+.agent-status { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 650; color: var(--muted); }
+.agent-note { font-weight: 500; }
+.agent-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.agent-status.s-listening .agent-dot, .agent-status.s-thinking .agent-dot, .agent-status.s-acting .agent-dot { background: var(--sea); animation: agent-pulse 1.1s ease-in-out infinite; }
+.agent-status.s-waiting_confirmation .agent-dot, .agent-status.s-paused .agent-dot { background: #c98a00; }
+.agent-status.s-handoff .agent-dot { background: #3b82f6; }
+.agent-status.s-error { color: var(--coral); }
+.agent-status.s-error .agent-dot { background: var(--coral); }
+@keyframes agent-pulse { 50% { opacity: .35; } }
+.agent-try { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.agent-try-label { width: 100%; font-size: 13px; font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.agent-try-chip { min-height: 44px; padding: 8px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); font-size: 16px; font-weight: 600; text-align: left; cursor: pointer; }
+.agent-row { display: flex; align-items: center; gap: 10px; }
+.agent-mic { flex: none; width: 56px; height: 56px; border-radius: 50%; border: 0; display: grid; place-items: center; background: var(--sea); color: #fff; cursor: pointer; }
+.agent-mic.live { background: var(--coral); box-shadow: 0 0 0 6px color-mix(in srgb, var(--coral) 22%, transparent); }
+.agent-input { flex: 1; min-width: 0; min-height: 48px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--text); padding: 0 14px; font-size: 17px; }
+.agent-send, .agent-stop { flex: none; width: 48px; height: 48px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; color: #fff; }
+.agent-send { background: var(--ink); }
+.agent-send:disabled { opacity: .4; cursor: default; }
+.agent-stop { background: var(--coral); }
+.agent-dock :focus-visible, .chooser-sheet :focus-visible, .handoff-sheet :focus-visible { outline: 3px solid var(--sea); outline-offset: 2px; }
+
+.plan-strip { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; }
+.plan-head { display: flex; justify-content: space-between; gap: 8px; font-size: 15px; margin-bottom: 6px; }
+.plan-count { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.plan-strip ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.plan-step { display: flex; align-items: center; gap: 8px; font-size: 16px; color: var(--muted); }
+.plan-step.p-running { color: var(--text); font-weight: 650; }
+.plan-step.p-done { color: var(--text); }
+.plan-step.p-done svg { color: var(--sea); }
+.plan-step.p-failed svg { color: var(--coral); }
+.plan-step.p-skipped span:first-of-type { text-decoration: line-through; }
+.spin { animation: state-spin 1s linear infinite; }
+
+.chooser-overlay, .handoff-overlay { position: absolute; inset: 0; z-index: 44; background: rgba(6, 18, 22, .5); display: flex; align-items: flex-end; }
+.chooser-sheet, .handoff-sheet { width: 100%; max-height: 92%; overflow-y: auto; background: var(--bg); border-radius: 26px 26px 0 0; padding: 16px 16px 22px; display: flex; flex-direction: column; gap: 12px; }
+.chooser-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.chooser-head h2, .handoff-sheet h2 { font-size: 22px; line-height: 1.25; margin: 0; }
+.chooser-hint { margin: 0; color: var(--muted); font-size: 16px; }
+.chooser-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.chooser-option { width: 100%; min-height: 64px; display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); color: var(--text); text-align: left; cursor: pointer; }
+.chooser-n { width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: #fff; font-weight: 700; font-size: 18px; }
+.chooser-text { display: flex; flex-direction: column; font-size: 18px; }
+.chooser-text span { font-size: 14px; color: var(--muted); }
+.handoff-sheet { align-items: stretch; }
+.handoff-ico { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, #3b82f6 16%, var(--surface)); color: #2563eb; }
+.handoff-ref { margin: 0; color: var(--muted); font-size: 15px; }
+.handoff-sheet h3 { margin: 6px 0 0; font-size: 16px; }
+.handoff-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 16px; }
+.handoff-list li { display: flex; gap: 8px; align-items: center; }
+@media (prefers-reduced-motion: reduce) { .agent-dot, .spin { animation: none !important; } }

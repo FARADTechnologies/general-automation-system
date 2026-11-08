@@ -4,6 +4,9 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { useUi } from '../../runtime';
 
+// Initials from the display name the runtime sends; no photos or colours are invented.
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('');
+
 export default function ContactChooser() {
   const { ui, intent } = useUi();
   const m = ui.modal;
@@ -21,6 +24,7 @@ export default function ContactChooser() {
             <li key={o.n}>
               <button type="button" className="chooser-option" onClick={() => intent({ type: 'chooser.pick', chooserId: m.chooserId, n: o.n })} data-nav-id={`chooser-option-${o.n}`}>
                 <span className="chooser-n" aria-hidden="true">{o.n}</span>
+                <span className="chooser-avatar" aria-hidden="true">{initials(o.label)}</span>
                 <span className="chooser-text"><strong>{o.label}</strong>{o.sub && <span>{o.sub}</span>}</span>
               </button>
             </li>

@@ -43,6 +43,7 @@
 .chooser-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .chooser-option { width: 100%; min-height: 64px; display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); color: var(--text); text-align: left; cursor: pointer; }
 .chooser-n { width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: #fff; font-weight: 700; font-size: 18px; }
+.chooser-avatar { width: 44px; height: 44px; flex: none; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--sea) 16%, var(--surface)); color: var(--text); font-weight: 700; font-size: 16px; }
 .chooser-text { display: flex; flex-direction: column; font-size: 18px; }
 .chooser-text span { font-size: 14px; color: var(--muted); }
 .handoff-sheet { align-items: stretch; }

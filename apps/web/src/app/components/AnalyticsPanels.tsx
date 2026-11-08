@@ -1,19 +1,25 @@
 // Panels that extend /app/analytics: compare two periods, top expenses, income sources.
 // Every number comes from the analytics capabilities; the UI only lays them out.
 import React from 'react';
-import { useBank, useUi } from '../../runtime';
+import { useNavigate } from 'react-router-dom';
 import { Loading, Empty, ErrorState } from './States';
+// Resources the app API does not expose yet. Each screen keeps its ready layout and shows the loading
+// state until the core team wires the resource (swap notYet(...) for useBank(...)).
+function notYet<T = any>(_resource: string, _params?: Record<string, string | number>) {
+  return { status: 'loading' as 'loading' | 'ready' | 'error', data: undefined as unknown as T, reload: () => undefined };
+}
+
 
 type Period = '7d' | '30d' | '90d';
 
 export function SpendByCategory({ period }: { period: Period }) {
   // TODO(data): analytics.spend_by_category -> { total, items: [{ category, amount, pct }] }, sorted by the bank.
-  const r = useBank('analytics.by_category', { period });
+  const r = notYet('analytics.by_category', { period });
   return (
     <section className="block an-panel" aria-labelledby="an-cat" data-nav-id="analytics-by-category">
       <h2 id="an-cat">Spending by category</h2>
       {r.status === 'loading' && <Loading />}
-      {r.status === 'error' && <ErrorState onRetry={r.retry} />}
+      {r.status === 'error' && <ErrorState onRetry={r.reload} />}
       {r.status === 'ready' && r.data.items.length === 0 && <Empty title="No spending in this period" />}
       {r.status === 'ready' && r.data.items.length > 0 && (
         <>
@@ -35,12 +41,12 @@ export function SpendByCategory({ period }: { period: Period }) {
 
 export function ComparePeriods({ period }: { period: Period }) {
   // TODO(data): analytics.compare_periods -> { summary, rows: [{ category, now, before, nowPct, beforePct }] }
-  const r = useBank('analytics.compare', { period });
+  const r = notYet('analytics.compare', { period });
   return (
     <section className="block an-panel" aria-labelledby="an-compare" data-nav-id="analytics-compare">
       <h2 id="an-compare">Compared with the period before</h2>
       {r.status === 'loading' && <Loading />}
-      {r.status === 'error' && <ErrorState onRetry={r.retry} />}
+      {r.status === 'error' && <ErrorState onRetry={r.reload} />}
       {r.status === 'ready' && (
         <>
           <p className="an-summary">{r.data.summary}</p>
@@ -61,19 +67,19 @@ export function ComparePeriods({ period }: { period: Period }) {
 }
 
 export function TopExpenses({ period }: { period: Period }) {
-  const { intent } = useUi();
-  const r = useBank('analytics.top_expenses', { period, limit: 5 });
+  const nav = useNavigate();
+  const r = notYet('analytics.top_expenses', { period, limit: 5 });
   return (
     <section className="block flush an-panel" aria-labelledby="an-top" data-nav-id="analytics-top">
       <h2 id="an-top" className="an-h">Top expenses</h2>
       {r.status === 'loading' && <Loading />}
-      {r.status === 'error' && <ErrorState onRetry={r.retry} />}
+      {r.status === 'error' && <ErrorState onRetry={r.reload} />}
       {r.status === 'ready' && r.data.length === 0 && <Empty title="No spending in this period" />}
       {r.status === 'ready' && r.data.length > 0 && (
         <ol className="an-list">
           {r.data.map((t: { txId: string; title: string; category: string; date: string; amount: string }, i: number) => (
             <li key={t.txId}>
-              <button type="button" className="li" onClick={() => intent({ type: 'navigate', to: `/app/history/${t.txId}` })} data-nav-id={`tx-${t.txId}`}>
+              <button type="button" className="li" onClick={() => nav(`/history/${t.txId}`)} data-nav-id={`tx-${t.txId}`}>
                 <span className="an-rank" aria-hidden="true">{i + 1}</span>
                 <span className="li-main"><span className="li-title">{t.title}</span><span className="li-sub">{t.category} · {t.date}</span></span>
                 <span className="li-right num">{t.amount}</span>
@@ -87,12 +93,12 @@ export function TopExpenses({ period }: { period: Period }) {
 }
 
 export function IncomeSources({ period }: { period: Period }) {
-  const r = useBank('analytics.income_sources', { period });
+  const r = notYet('analytics.income_sources', { period });
   return (
     <section className="block flush an-panel" aria-labelledby="an-income" data-nav-id="analytics-income">
       <h2 id="an-income" className="an-h">Money in</h2>
       {r.status === 'loading' && <Loading />}
-      {r.status === 'error' && <ErrorState onRetry={r.retry} />}
+      {r.status === 'error' && <ErrorState onRetry={r.reload} />}
       {r.status === 'ready' && r.data.items.length === 0 && <Empty title="No income in this period" />}
       {r.status === 'ready' && r.data.items.length > 0 && (
         <ul className="an-list">

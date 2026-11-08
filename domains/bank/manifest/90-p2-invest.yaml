@@ -1,0 +1,169 @@
+id: market.screen
+title: Screen simulated market instruments
+llm_description: >
+  List simulated market instruments, optionally by sector, ranked by price change over a period
+  (1d, 1w, 1m). This is data only. Never recommend what to buy; if asked for advice, show the data
+  and say you cannot give personal investment advice. Always mention that it is simulated market data.
+kind: read
+risk: R0
+input_schema:
+  type: object
+  properties:
+    sector: { type: string, enum: [technology, robotics, energy, healthcare, finance] }
+    period: { type: string, enum: ["1d", "1w", "1m"] }
+    direction: { type: string, enum: [up, down, any] }
+    limit: { type: integer, minimum: 1, maximum: 20 }
+  required: [period]
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/mkt/scrn
+  query: { sctr: "{input.sector}", prd: "{input.period}", dir: "{input.direction}", lmt: "{input.limit|default:10}" }
+response:
+  items: items
+  extra:
+    data_label: "{raw.lbl}"
+    period: "{raw.prd_cd}"
+  fields:
+    symbol: sym
+    name: nm
+    sector: sctr
+    price: { from: px_minor, transform: major }
+    currency: ccy
+    change_1d_pct: chg_1d
+    change_1w_pct: chg_1w
+    change_1m_pct: chg_1m
+ui:
+  route: /app/invest
+---
+id: market.quote
+title: Look up an instrument
+llm_description: >
+  Look up a simulated market instrument by the symbol or name the user said. Returns an instrument
+  reference needed to prepare an order. Simulated market data.
+kind: read
+risk: R0
+input_schema:
+  type: object
+  properties:
+    query: { type: string, maxLength: 40, description: "Symbol or company name exactly as the user said it" }
+  required: [query]
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/mkt/qte
+  query: { q: "{input.query}" }
+response:
+  items: items
+  extra:
+    data_label: "{raw.lbl}"
+  fields:
+    instrument:
+      from: sym
+      token: { kind: instrument, provenance: resolved_instrument, masked: "{item.sym}", label: "{item.nm} ({item.sym})" }
+    symbol: sym
+    name: nm
+    sector: sctr
+    price: { from: px_minor, transform: major }
+    currency: ccy
+    change_1d_pct: chg_1d
+ui:
+  route: /app/invest
+---
+id: portfolio.get
+title: Investment portfolio
+llm_description: >
+  The customer's simulated investment portfolio: holdings, current value and profit or loss,
+  calculated by the bank. Simulated market data.
+kind: read
+risk: R0
+derived: true
+input_schema:
+  type: object
+  properties: {}
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/pfl
+response:
+  items: items
+  extra:
+    data_label: "{raw.lbl}"
+    total_value: "{raw.ttl_minor|major}"
+    currency: "{raw.ccy}"
+  fields:
+    symbol: sym
+    name: nm
+    sector: sctr
+    quantity: qty
+    price: { from: px_minor, transform: major }
+    value: { from: val_minor, transform: major }
+    profit_loss: { from: pnl_minor, transform: major }
+    change_1d_pct: chg_1d
+ui:
+  route: /app/invest
+---
+id: invest.order.prepare
+title: Prepare a buy order (simulated market)
+llm_description: >
+  Prepare buying a simulated instrument for an amount in USD from the USD account. Only when the
+  user named the instrument and the amount; the instrument must come from market.quote with the
+  user's words. Never suggest what to buy. The customer confirms with fingerprint or PIN.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    instrument: { type: string, description: "Instrument reference from market.quote" }
+    amount: { type: number, description: "Amount in USD the user stated" }
+  required: [instrument, amount]
+  additionalProperties: false
+intent_terms: [buy, invest, purchase, order, put]
+critical_args:
+  instrument: { token: instrument, provenance: [resolved_instrument] }
+  amount: { provenance: [user_stated] }
+lookups:
+  source:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { ccy: USD, acct_typ_cd: CUR }
+policy:
+  limit_group: invest
+  amount: "{input.amount}"
+  currency: USD
+request:
+  method: POST
+  path: /internal/v3/inv/ord
+  body:
+    cust_id: "{ctx.cust_id}"
+    src_acct_no: "{lookup.source.acct_no}"
+    sym: "{args.instrument}"
+    amt_minor: "{input.amount|minor}"
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: op_id
+  name: data.nm
+  symbol: data.sym
+  price: { from: data.px_minor, transform: major }
+  qty: data.est_qty
+commit: { method: POST, path: "/internal/v3/op/{result.ref}/aply" }
+cancel: { method: POST, path: "/internal/v3/op/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/op/{result.ref}
+  expect: { sts_cd: DONE }
+confirm:
+  level: biometric
+  title: Buy order (simulated market)
+  display:
+    - { key: instrument, label: Instrument, value: "{result.name} ({result.symbol})" }
+    - { key: amount, label: Amount, value: "{input.amount|money:USD}" }
+    - { key: price, label: Price now, value: "{result.price|money:USD}" }
+    - { key: qty, label: Estimated quantity, value: "{result.qty}" }
+    - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
+    - { key: label, label: Note, value: "Simulated market data. Not investment advice." }
+errors:
+  SYM_NF: { code: INSTRUMENT_NOT_FOUND, message: "No such instrument." }
+ui:
+  route: /app/invest

@@ -1,6 +1,7 @@
 // In-memory mock core bank. One isolated customer per demo session.
 import { randomBytes } from 'node:crypto';
 import { seedCustomer, type CustomerData } from './seed.ts';
+import { marketData, seedPortfolio, type Holding } from './market.ts';
 
 export interface Drft {
   drft_id: string; cust_id: string; dst_typ_cd: 'BNF' | 'PAN' | 'ACCT' | 'BLL' | 'TOPUP' | 'MSISDN';
@@ -12,9 +13,9 @@ export interface Fault { op: string; mode: 'error' | 'timeout'; cnt: number }
 /** Business effects journal, used by the evaluation oracle to compare outcomes. */
 export type Effect = Record<string, string | number>;
 /** Generic two-phase operation: created pending, applied on confirmation. */
-export interface Op { op_id: string; cust_id: string; knd: 'BTCH' | 'RPLC' | 'SO' | 'RTP' | 'SBCN'; sts_cd: 'PEND' | 'DONE' | 'CNCL' | 'RJCT'; idmp_key: string; crt_ts: string; data: Record<string, any> }
+export interface Op { op_id: string; cust_id: string; knd: 'BTCH' | 'RPLC' | 'SO' | 'RTP' | 'SBCN' | 'INV'; sts_cd: 'PEND' | 'DONE' | 'CNCL' | 'RJCT'; idmp_key: string; crt_ts: string; data: Record<string, any> }
 
-interface Customer { cust_id: string; ext_ref: string; data: CustomerData; drfts: Map<string, Drft>; chg: Map<string, CrdChgReq>; ops: Map<string, Op>; faults: Fault[]; journal: Effect[]; so: any[]; rtp: any[]; rplc: any[] }
+interface Customer { cust_id: string; ext_ref: string; data: CustomerData; drfts: Map<string, Drft>; chg: Map<string, CrdChgReq>; ops: Map<string, Op>; faults: Fault[]; journal: Effect[]; so: any[]; rtp: any[]; rplc: any[]; pfl: Holding[] }
 
 export class BankError extends Error {
   constructor(public status: number, public rsn_cd: string, msg: string) { super(msg); }
@@ -32,7 +33,7 @@ export class CoreBank {
     const existing = this.byExt.get(ext_ref);
     if (existing) return existing;
     const cust_id = 'C' + randomBytes(6).toString('hex').toUpperCase();
-    this.byCust.set(cust_id, { cust_id, ext_ref, data: seedCustomer(), drfts: new Map(), chg: new Map(), ops: new Map(), faults: [], journal: [], so: [], rtp: [], rplc: [] });
+    this.byCust.set(cust_id, { cust_id, ext_ref, data: seedCustomer(), drfts: new Map(), chg: new Map(), ops: new Map(), faults: [], journal: [], so: [], rtp: [], rplc: [], pfl: seedPortfolio() });
     this.byExt.set(ext_ref, cust_id);
     return cust_id;
   }
@@ -40,7 +41,7 @@ export class CoreBank {
   reset(ext_ref: string): string {
     const cust_id = this.resolve(ext_ref);
     const c = this.byCust.get(cust_id)!;
-    c.data = seedCustomer(); c.drfts.clear(); c.chg.clear(); c.ops.clear(); c.faults = []; c.journal = []; c.so = []; c.rtp = []; c.rplc = [];
+    c.data = seedCustomer(); c.drfts.clear(); c.chg.clear(); c.ops.clear(); c.faults = []; c.journal = []; c.so = []; c.rtp = []; c.rplc = []; c.pfl = seedPortfolio();
     return cust_id;
   }
 
@@ -226,6 +227,7 @@ export class CoreBank {
   effects(cust_id: string) { return this.cust(cust_id).journal; }
   standingOrders(cust_id: string) { return this.cust(cust_id).so; }
   paymentRequests(cust_id: string) { return this.cust(cust_id).rtp; }
+  portfolio(cust_id: string) { return this.cust(cust_id).pfl; }
 
   // ---------- generic two-phase operations ----------
   async createOp(knd: Op['knd'], body: Record<string, any>): Promise<Op> {
@@ -276,6 +278,18 @@ export class CoreBank {
         if (!Number.isInteger(amt) || amt <= 0) throw new BankError(400, 'AMT_INV', 'invalid amount');
         const items = refs.map((r) => ({ bnfcry_ref: r, bnfcry_nm: bnf(r).bnfcry_nm, amt_minor: amt }));
         data = { items, ccy: String(body.ccy || 'AZN'), note: String(body.note || '').slice(0, 80), who: items.map((i) => i.bnfcry_nm).join(', ') };
+        break;
+      }
+      case 'INV': {
+        const src = acct(String(body.src_acct_no));
+        const ins = marketData().find((m) => m.sym === body.sym);
+        if (!ins) throw new BankError(404, 'SYM_NF', 'instrument not found');
+        const amt = Number(body.amt_minor);
+        if (!Number.isInteger(amt) || amt <= 0) throw new BankError(400, 'AMT_INV', 'invalid amount');
+        if (src.ccy !== ins.ccy) throw new BankError(422, 'CCY_MISMATCH', 'orders are paid from the USD account');
+        if (amt > src.bal_minor) throw new BankError(422, 'NSF', 'insufficient funds');
+        const qty = Math.floor((amt / ins.px_minor) * 10000) / 10000;
+        data = { src_acct_no: src.acct_no, sym: ins.sym, nm: ins.nm, amt_minor: amt, ccy: ins.ccy, px_minor: ins.px_minor, est_qty: qty, side: 'BUY', lbl: 'Simulated market data' };
         break;
       }
       case 'SBCN': {
@@ -330,6 +344,17 @@ export class CoreBank {
       case 'RTP':
         for (const it of d.items) { c.rtp.push({ ...it, ccy: d.ccy, note: d.note, sts_cd: 'SENT' }); c.journal.push({ type: 'payment_request', from: it.bnfcry_nm, amount: it.amt_minor / 100 }); }
         break;
+      case 'INV': {
+        const src = c.data.accts.find((a) => a.acct_no === d.src_acct_no)!;
+        if (d.amt_minor > src.bal_minor) { o.sts_cd = 'RJCT'; throw new BankError(422, 'NSF', 'insufficient funds'); }
+        src.bal_minor -= d.amt_minor;
+        const h = c.pfl.find((x) => x.sym === d.sym);
+        if (h) { const q = h.qty + d.est_qty; h.avg_px_minor = Math.round((h.avg_px_minor * h.qty + d.px_minor * d.est_qty) / q); h.qty = Math.round(q * 10000) / 10000; }
+        else c.pfl.push({ sym: d.sym, qty: d.est_qty, avg_px_minor: d.px_minor });
+        c.data.txns.unshift({ txn_ref: id('TXN'), acct_no: src.acct_no, bkg_dt: new Date().toISOString(), amt_minor: -d.amt_minor, ccy: d.ccy, mrch_nm: 'Investment order ' + d.sym, txn_desc: 'Simulated market', ctgry_cd: 'INVS', crd_pan: null, cntrpty_nm: null });
+        c.journal.push({ type: 'invest_order', symbol: d.sym, amount: d.amt_minor / 100, currency: d.ccy });
+        break;
+      }
       case 'SBCN': {
         const s = c.data.sbscr.find((x) => x.sbscr_ref === d.sbscr_ref)!;
         if (s.sts_cd !== 'ACT') { o.sts_cd = 'RJCT'; throw new BankError(422, 'SBSCR_INACTIVE', 'subscription already cancelled'); }

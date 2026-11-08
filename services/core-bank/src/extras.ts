@@ -4,6 +4,7 @@ import type { Router } from 'express';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { BankError, type CoreBank } from './bank.ts';
+import { marketData, MARKET_LABEL } from './market.ts';
 
 export function periodRange(code: string, now = new Date()): { frm: string; to: string } {
   const d = (x: Date) => x.toISOString();
@@ -105,6 +106,32 @@ export function mountExtras(internal: Router, bank: CoreBank, opts: { kbDir?: st
     const { frm, to, items } = txnsIn(req.params.cust, q.prd || 'last_30_days', q.ccy || 'AZN', 'DR');
     res.json({ frm_dt: frm.slice(0, 10), to_dt: to.slice(0, 10), items: [...items].sort((x, y) => x.amt_minor - y.amt_minor).slice(0, Math.min(Number(q.lmt) || 5, 20)) });
   });
+
+  // simulated market data (never presented as live)
+  internal.get('/v3/mkt/scrn', (req, res) => {
+    const q = req.query as Record<string, string>;
+    const key = q.prd === '1w' ? 'chg_1w' : q.prd === '1m' ? 'chg_1m' : 'chg_1d';
+    let items = marketData().filter((m) => !q.sctr || m.sctr === q.sctr);
+    if (q.dir === 'up') items = items.filter((m) => m[key] > 0);
+    if (q.dir === 'down') items = items.filter((m) => m[key] < 0);
+    items.sort((a, b) => (q.dir === 'down' ? a[key] - b[key] : b[key] - a[key]));
+    res.json({ lbl: MARKET_LABEL, prd_cd: q.prd || '1d', items: items.slice(0, Math.min(Number(q.lmt) || 10, 40)) });
+  });
+  internal.get('/v3/mkt/qte', (req, res) => {
+    const q = String(req.query.q || '').toLowerCase().trim();
+    const items = marketData().filter((m) => q && (m.sym.toLowerCase() === q || m.nm.toLowerCase().includes(q)));
+    res.json({ lbl: MARKET_LABEL, items });
+  });
+  internal.get('/v3/cust/:cust/pfl', (req, res) => {
+    const mk = marketData();
+    const items = bank.portfolio(req.params.cust).map((h) => {
+      const m = mk.find((x) => x.sym === h.sym)!;
+      const val = Math.round(h.qty * m.px_minor);
+      return { sym: h.sym, nm: m.nm, sctr: m.sctr, qty: h.qty, px_minor: m.px_minor, val_minor: val, pnl_minor: val - Math.round(h.qty * h.avg_px_minor), chg_1d: m.chg_1d, ccy: m.ccy };
+    });
+    res.json({ lbl: MARKET_LABEL, ccy: 'USD', ttl_minor: items.reduce((s, x) => s + x.val_minor, 0), items });
+  });
+  internal.post('/v3/inv/ord', async (req, res) => { res.status(201).json(await bank.createOp('INV', req.body || {})); });
 
   // calculators
   internal.get('/v3/calc/split', (req, res) => {

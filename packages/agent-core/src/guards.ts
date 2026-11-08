@@ -69,8 +69,11 @@ export function guardToolCall(
         const rec = ledger.evidence.tokens[String(one)];
         if (!rec) return { ok: false, code: 'PROVENANCE_REJECTED', reason: `${arg} must be a reference returned by a tool in this task or given by the user.` };
         if (allowed.length && !allowed.includes(rec.provenance)) return { ok: false, code: 'PROVENANCE_REJECTED', reason: `${arg} must come from ${allowed.join(' or ')}.` };
-        if (rec.provenance === 'resolved_contact' && !queryFromUser(rec.query || '', ledger.evidence.user_texts)) {
-          return { ok: false, code: 'PAYEE_NOT_FROM_USER', reason: `The contact was searched with "${rec.query}", which the user never said. A payee can only come from the user's own words.` };
+        // anything 'resolved_*' (a contact, an instrument) must have been looked up with the user's own words
+        if (rec.provenance.startsWith('resolved_') && !queryFromUser(rec.query || '', ledger.evidence.user_texts)) {
+          return rec.provenance === 'resolved_contact'
+            ? { ok: false, code: 'PAYEE_NOT_FROM_USER', reason: `The contact was searched with "${rec.query}", which the user never said. A payee can only come from the user's own words.` }
+            : { ok: false, code: 'REFERENCE_NOT_FROM_USER', reason: `${arg} was looked up with "${rec.query}", which the user never said.` };
         }
       }
     } else if (typeof value === 'number') {

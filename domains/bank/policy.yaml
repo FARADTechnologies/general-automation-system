@@ -1,0 +1,16 @@
+# Deterministic risk policy enforced by the Bridge. Amounts in major units.
+limits:
+  transfer:
+    per_tx: { AZN: 1000, USD: 500 }
+    daily: { AZN: 2000, USD: 1000 }
+  bill:
+    per_tx: { AZN: 500 }
+    daily: { AZN: 1500 }
+new_payee:
+  # A first payment to a payee that is at least this share of the source balance
+  # needs an extra, explicit acknowledgement on the bank screen.
+  balance_ratio_threshold: 0.3
+confirmation:
+  ttl_seconds: 120
+  demo_pin: "1234"
+disabled: []

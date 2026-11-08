@@ -1,0 +1,105 @@
+id: bills.list_unpaid
+title: Unpaid bills
+llm_description: >
+  List the customer's unpaid utility and mobile bills with biller, amount due and due date.
+  Returns bill tokens for bill payment.
+kind: read
+risk: R0
+input_schema:
+  type: object
+  properties: {}
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/bll
+  query: { sts_cd: UNPD }
+response:
+  items: items
+  fields:
+    bill:
+      from: bll_ref
+      token: { kind: bill, provenance: bank_record, masked: "{item.blr_nm} •••{item.sbscr_no|last4}", label: "{item.blr_nm}" }
+    biller: blr_nm
+    amount_due: { from: due_amt_minor, transform: major }
+    currency: ccy
+    due_date: due_dt
+ui:
+  route: /app/payments
+---
+id: bill.pay.prepare
+title: Prepare paying a bill
+llm_description: >
+  Prepare paying one unpaid bill in full. The amount is taken from the bill itself. Nothing is
+  paid until the customer confirms on the bank screen. The bill must be a token from
+  bills.list_unpaid.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    bill: { type: string, description: "Bill token from bills.list_unpaid" }
+    source_account: { type: string, description: "Optional account token from accounts.list" }
+  required: [bill]
+  additionalProperties: false
+critical_args:
+  bill: { token: bill, provenance: [bank_record] }
+token_args:
+  source_account: account
+lookups:
+  bill:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/bll
+    items: items
+    where: { bll_ref: "{args.bill}", bll_sts_cd: UNPD }
+    error: { code: BILL_NOT_PAYABLE, message: "This bill is not unpaid any more." }
+  source:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { acct_no: "{args.source_account}", ccy: "{lookup.bill.ccy}" }
+    error: { code: SOURCE_ACCOUNT_NOT_FOUND, message: "No account in the bill's currency." }
+policy:
+  limit_group: bill
+  amount: "{lookup.bill.due_amt_minor|major}"
+  currency: "{lookup.bill.ccy}"
+request:
+  method: POST
+  path: /internal/v3/pmt/drft
+  body:
+    cust_id: "{ctx.cust_id}"
+    src_acct_no: "{lookup.source.acct_no}"
+    dst_typ_cd: BLL
+    dst_ref: "{args.bill}"
+    amt_minor: "{lookup.bill.due_amt_minor}"
+    ccy: "{lookup.bill.ccy}"
+    chnl_cd: AGT
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: drft_id
+  fee: { from: fee_minor, transform: major }
+commit:
+  method: POST
+  path: /internal/v3/pmt/{result.ref}/post
+cancel:
+  method: POST
+  path: /internal/v3/pmt/{result.ref}/cncl
+postcondition:
+  method: GET
+  path: /internal/v3/pmt/{result.ref}
+  expect: { sts_cd: POSTED }
+confirm:
+  level: biometric
+  title: Pay a bill
+  display:
+    - { key: biller, label: Biller, value: "{lookup.bill.blr_nm}" }
+    - { key: subscriber, label: Subscriber, value: "•••{lookup.bill.sbscr_no|last4}" }
+    - { key: amount, label: Amount, value: "{lookup.bill.due_amt_minor|major|money:lookup.bill.ccy}" }
+    - { key: fee, label: Fee, value: "{result.fee|money:lookup.bill.ccy}" }
+    - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
+ui:
+  route: /app/payments/bill
+  form: bill
+  fields:
+    - { target: bill-account, display: subscriber }
+    - { target: bill-amount, display: amount }
+  submit: bill-pay

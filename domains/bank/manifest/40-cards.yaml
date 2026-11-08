@@ -1,0 +1,54 @@
+id: card.block.prepare
+title: Prepare blocking a card
+llm_description: >
+  Prepare blocking (freezing) one of the customer's cards, for example when it is lost.
+  Nothing changes until the customer taps confirm on the bank screen. The card must be a token
+  from cards.list.
+kind: prepare
+risk: R2
+input_schema:
+  type: object
+  properties:
+    card: { type: string, description: "Card token from cards.list" }
+  required: [card]
+  additionalProperties: false
+critical_args:
+  card: { token: card, provenance: [bank_record] }
+lookups:
+  card:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/crd
+    items: items
+    where: { crd_pan: "{args.card}" }
+request:
+  method: POST
+  path: /internal/v3/crd/chg_req
+  body:
+    cust_id: "{ctx.cust_id}"
+    crd_pan: "{args.card}"
+    new_sts_cd: B
+    rsn_cd: CUST
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: req_id
+commit:
+  method: POST
+  path: /internal/v3/crd/chg_req/{result.ref}/aply
+cancel:
+  method: POST
+  path: /internal/v3/crd/chg_req/{result.ref}/cncl
+postcondition:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/crd/{args.card}
+  expect: { crd_sts_cd: B }
+confirm:
+  level: tap
+  title: Block card
+  display:
+    - { key: card, label: Card, value: "{lookup.card.crd_nm} •••• {lookup.card.crd_pan|last4}" }
+    - { key: effect, label: Effect, value: "Payments and withdrawals stop immediately. You can unblock it later." }
+errors:
+  CRD_STS_SAME: { code: ALREADY_BLOCKED, message: "This card is already blocked." }
+ui:
+  route: /app/cards
+  fields: []

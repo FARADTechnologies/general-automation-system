@@ -1,0 +1,6 @@
+{
+  "name": "@gas/shared",
+  "private": true,
+  "type": "module",
+  "exports": { "./env": "./src/env.ts" }
+}

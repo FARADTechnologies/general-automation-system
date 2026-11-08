@@ -1,0 +1,55 @@
+id: accounts.list
+title: Accounts and balances
+llm_description: >
+  List the customer's accounts with type, currency and current balance. Use it for balance
+  questions and to choose a source account. Returns account tokens, never account numbers.
+kind: read
+risk: R0
+input_schema:
+  type: object
+  properties: {}
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/acct
+response:
+  items: items
+  fields:
+    account:
+      from: acct_no
+      token: { kind: account, provenance: bank_record, masked: "•••• {item.acct_no|last4}", label: "{item.acct_nm}", meta: { currency: "{item.ccy}" } }
+    name: acct_nm
+    type: { from: acct_typ_cd, map: { CUR: current, SAV: savings } }
+    currency: ccy
+    balance: { from: avail_bal_minor, transform: major }
+    last4: { from: acct_no, transform: last4 }
+ui:
+  route: /app
+---
+id: cards.list
+title: Cards
+llm_description: >
+  List the customer's cards with name, network, last four digits and status (active or blocked).
+  Returns card tokens; use them with card actions.
+kind: read
+risk: R0
+input_schema:
+  type: object
+  properties: {}
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/crd
+response:
+  items: items
+  fields:
+    card:
+      from: crd_pan
+      token: { kind: card, provenance: bank_record, masked: "•••• {item.crd_pan|last4}", label: "{item.crd_nm}" }
+    name: crd_nm
+    network: { from: ntwrk_cd, map: { VISA: Visa, MC: Mastercard } }
+    last4: { from: crd_pan, transform: last4 }
+    status: { from: crd_sts_cd, map: { A: active, B: blocked } }
+    virtual: { from: vrtl_flg, map: { Y: "yes", N: "no" } }
+ui:
+  route: /app/cards

@@ -1,0 +1,111 @@
+id: contacts.search
+title: Find a contact
+llm_description: >
+  Search the customer's saved contacts by name. Use the name exactly as the user said it.
+  Returns contact tokens and the last four digits of each contact's card. Several results
+  mean the request is ambiguous: ask the user which one.
+kind: read
+risk: R0
+input_schema:
+  type: object
+  properties:
+    query: { type: string, minLength: 1, maxLength: 60, description: "Contact name from the user's words" }
+  required: [query]
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/bnfcry
+  query: { q: "{input.query}" }
+response:
+  items: items
+  fields:
+    contact:
+      from: bnfcry_ref
+      token: { kind: contact, provenance: resolved_contact, masked: "•••• {item.dst_pan|last4}", label: "{item.bnfcry_nm}", meta: { new_payee: "{item.frst_pmt_dt|is_null}", name: "{item.bnfcry_nm}" } }
+    name: bnfcry_nm
+    card_last4: { from: dst_pan, transform: last4 }
+    new_payee: { from: frst_pmt_dt, transform: is_null }
+ui:
+  route: /app/transfers
+---
+id: transfer.contact.prepare
+title: Prepare a transfer to a contact
+llm_description: >
+  Prepare a money transfer to a saved contact. This does not move money: the customer reviews
+  and confirms it on the bank's own screen. The contact must be a token from contacts.search,
+  the amount must be what the user said. Omit source_account to use the main account in that
+  currency.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    contact: { type: string, description: "Contact token from contacts.search" }
+    amount: { type: number, description: "Amount in major units, exactly as the user stated it" }
+    currency: { type: string, enum: [AZN, USD] }
+    source_account: { type: string, description: "Optional account token from accounts.list" }
+  required: [contact, amount, currency]
+  additionalProperties: false
+critical_args:
+  contact: { token: contact, provenance: [resolved_contact, ingress_token, template] }
+  amount: { provenance: [user_stated, derived, template] }
+token_args:
+  source_account: account
+lookups:
+  source:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { acct_no: "{args.source_account}", ccy: "{input.currency}" }
+    error: { code: SOURCE_ACCOUNT_NOT_FOUND, message: "No account in that currency." }
+policy:
+  limit_group: transfer
+  amount: "{input.amount}"
+  currency: "{input.currency}"
+  new_payee: "{meta.contact.new_payee}"
+  balance: "{lookup.source.avail_bal_minor|major}"
+request:
+  method: POST
+  path: /internal/v3/pmt/drft
+  body:
+    cust_id: "{ctx.cust_id}"
+    src_acct_no: "{lookup.source.acct_no}"
+    dst_typ_cd: BNF
+    dst_ref: "{args.contact}"
+    amt_minor: "{input.amount|minor}"
+    ccy: "{input.currency}"
+    chnl_cd: AGT
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: drft_id
+  fee: { from: fee_minor, transform: major }
+  payee_name: dst_nm
+commit:
+  method: POST
+  path: /internal/v3/pmt/{result.ref}/post
+cancel:
+  method: POST
+  path: /internal/v3/pmt/{result.ref}/cncl
+postcondition:
+  method: GET
+  path: /internal/v3/pmt/{result.ref}
+  expect: { sts_cd: POSTED }
+confirm:
+  level: biometric
+  title: Transfer to a contact
+  display:
+    - { key: payee_name, label: To, value: "{result.payee_name}" }
+    - { key: masked_destination, label: Card, value: "{input.contact|masked}" }
+    - { key: amount, label: Amount, value: "{input.amount|money:input.currency}" }
+    - { key: fee, label: Fee, value: "{result.fee|money:input.currency}" }
+    - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
+errors:
+  BNF_NF: { code: CONTACT_NOT_FOUND, message: "That contact was not found." }
+ui:
+  route: /app/transfers/contact
+  form: transfer
+  fields:
+    - { target: transfer-recipient, display: payee_name }
+    - { target: transfer-amount, display: amount }
+    - { target: transfer-source, display: source_account }
+  submit: transfer-continue

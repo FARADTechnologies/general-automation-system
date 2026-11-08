@@ -1,0 +1,8 @@
+{
+  "name": "@gas/core-bank",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "tsx watch src/main.ts", "start": "tsx src/main.ts" },
+  "dependencies": { "@gas/shared": "workspace:*", "express": "5.1.0" },
+  "devDependencies": { "@types/express": "^5.0.0" }
+}

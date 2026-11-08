@@ -1,0 +1,10 @@
+{
+  "name": "@gas/agent",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "tsx watch src/main.ts", "start": "tsx src/main.ts" },
+  "dependencies": {
+    "@gas/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.32.2"
+  }
+}

@@ -15,3 +15,12 @@ One line per reversible decision. Newest at the bottom.
 - 2026-11-08 Working product name stays "Seda" (designer's) until the captain decides otherwise; bank brand stays "Caspia".
 - 2026-11-08 Development guide lives in `CONTRIBUTING.md`.
 - 2026-11-08 Package manager is pnpm via corepack (workspace monorepo).
+- 2026-11-08 Services use Express 5 and run TypeScript directly with tsx; no build step for backends.
+- 2026-11-08 Bridge audit log uses Node's built-in `node:sqlite` with triggers that reject UPDATE/DELETE; no native modules.
+- 2026-11-08 Core Bank keeps state in memory, one seeded customer per demo session; reset reseeds.
+- 2026-11-08 MCP runs stateless (one server per request, JSON responses); the agent re-lists tools when the Bridge signals a change.
+- 2026-11-08 MCP tool names are capability IDs with dots replaced by underscores, because the model API rejects dots in tool names.
+- 2026-11-08 Confirmation needs an httpOnly device cookie issued to the phone by the Bridge; the agent never holds it. Production would use delegated tokens / CIBA.
+- 2026-11-08 Bridge notifies the agent of confirmation outcomes through an HMAC-signed webhook.
+- 2026-11-08 Policy limits are re-checked at commit time, not only at prepare time.
+- 2026-11-08 Merchant names, counterparties and memos are returned under `untrusted_text` in tool output.

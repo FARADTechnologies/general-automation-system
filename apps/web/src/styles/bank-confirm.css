@@ -9,7 +9,9 @@
      .bank-confirm-warn        new-payee / risk warning (optional)
      .bank-confirm-lines > .bank-confirm-row (> span + span)   payee, masked destination, fee, source
      .bank-confirm-actions     approve (biometric), PIN, cancel
-     .bank-confirm-pin         PIN pad (optional)                                              */
+     .bank-confirm-biometric   mock fingerprint step: .bank-confirm-sensor (+ .scanning / .done / .fail),
+                               .bank-confirm-bio-text, .bank-confirm-pin-link
+     .bank-confirm-pin         PIN fallback pad: .bank-confirm-pin-dots > i(.on), buttons                                              */
 .bank-confirm { position: absolute; inset: 0; z-index: 45; background: var(--bg); color: var(--text); overflow-y: auto; scrollbar-width: none; padding: 16px 18px calc(22px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 14px; animation: bank-confirm-in .24s cubic-bezier(.2, .8, .2, 1); }
 .bank-confirm::-webkit-scrollbar { display: none; }
 @keyframes bank-confirm-in { from { transform: translateY(24px); opacity: 0; } }
@@ -30,5 +32,19 @@
 .bank-confirm-actions button { min-height: 56px; border-radius: 16px; font-size: 18px; font-weight: 650; }
 .bank-confirm-pin { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .bank-confirm-pin button { min-height: 60px; font-size: 24px; border-radius: 16px; }
+.bank-confirm-biometric { margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.bank-confirm-biometric strong { font-size: 20px; }
+.bank-confirm-sensor { width: 120px; height: 120px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; color: var(--sea); background: color-mix(in srgb, var(--sea) 12%, var(--surface)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--sea) 30%, transparent); transition: background .2s, box-shadow .2s, transform .15s; }
+.bank-confirm-sensor:active { transform: scale(.97); }
+.bank-confirm-sensor.scanning { box-shadow: 0 0 0 8px color-mix(in srgb, var(--sea) 18%, transparent); animation: bank-confirm-scan 1s ease-in-out infinite; }
+.bank-confirm-sensor.done { background: var(--sea); color: #fff; }
+.bank-confirm-sensor.fail { color: var(--coral); background: color-mix(in srgb, var(--coral) 12%, var(--surface)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--coral) 40%, transparent); }
+@keyframes bank-confirm-scan { 50% { box-shadow: 0 0 0 16px color-mix(in srgb, var(--sea) 6%, transparent); } }
+.bank-confirm-bio-text { min-height: 22px; font-size: 16px; color: var(--muted); }
+.bank-confirm-bio-text.fail { color: var(--coral); }
+.bank-confirm-pin-link { background: none; border: 0; min-height: 44px; font-size: 16px; font-weight: 650; color: var(--sea); cursor: pointer; }
+.bank-confirm-pin-dots { display: flex; justify-content: center; gap: 14px; margin: 6px 0 4px; }
+.bank-confirm-pin-dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--muted); }
+.bank-confirm-pin-dots i.on { background: var(--text); border-color: var(--text); }
 .bank-confirm :focus-visible { outline: 3px solid var(--sea); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .bank-confirm { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .bank-confirm, .bank-confirm-sensor.scanning { animation: none; } }

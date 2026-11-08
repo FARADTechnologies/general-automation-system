@@ -1,6 +1,6 @@
 // Thin client for the session hub. The browser holds no AI, no keys and no bank logic:
 // it renders hub state, sends intents, and talks to the bank's own APIs.
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 
 export interface UiState {
   seq: number;
@@ -94,8 +94,26 @@ class HubClient {
 
 export const hub = new HubClient();
 
+const shallowEqual = (a: unknown, b: unknown) => {
+  if (Object.is(a, b)) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  const ka = Object.keys(a as object), kb = Object.keys(b as object);
+  return ka.length === kb.length && ka.every((k) => Object.is((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+};
+
+/** Select from the hub state. The result is cached per state object (and kept when shallow-equal),
+ *  so selectors that build new arrays or objects, such as `s.plan?.steps || []`, never loop. */
 export function useUi<T>(select: (s: UiState) => T): T {
-  return useSyncExternalStore(hub.subscribe, () => select(hub.state));
+  const cache = useRef<{ state: UiState | null; value: T }>({ state: null, value: undefined as T });
+  const get = () => {
+    const st = hub.state;
+    if (cache.current.state === st) return cache.current.value;
+    const v = select(st);
+    if (cache.current.state !== null && shallowEqual(v, cache.current.value)) { cache.current.state = st; return cache.current.value; }
+    cache.current = { state: st, value: v };
+    return v;
+  };
+  return useSyncExternalStore(hub.subscribe, get);
 }
 export function useConnected() { return useSyncExternalStore(hub.subscribe, () => hub.connected); }
 

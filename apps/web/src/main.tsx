@@ -9,6 +9,10 @@ import Stage from './stage/Stage.tsx';
 import Console from './console/Console.tsx';
 import './styles/app.css';
 import './styles/runtime.css';
+// designer refinements of core surfaces load after the runtime styles
+import './styles/bank-confirm.css';
+import './styles/agent.css';
+import './styles/states.css';
 
 function PhoneApp() {
   useEffect(() => { void registerDevice(hub.session); }, []);

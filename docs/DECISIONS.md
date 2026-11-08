@@ -42,3 +42,4 @@ One line per reversible decision. Newest at the bottom.
 - 2026-11-08 The gateway exposes only the web client, /api/agent, /ws, /bridge/* (confirmation) and /app-api/*; Core Bank internals and the Bridge's MCP and admin routes are not reachable from outside.
 - 2026-11-08 Early phone tests use a Cloudflare quick tunnel (HTTPS + WebSocket, no account). It depends on this laptop and is not the final hosting.
 - 2026-11-08 ANTHROPIC_API_KEY is stored as a GitHub Actions secret for CI and deploys.
+- 2026-11-08 Designer branches merged after review; the designer's /transfers/contact, /subscriptions, /bills, /invest and stage panels replace the runtime's placeholder versions. The bank app backend serves display-ready analytics, branches and simulated investment resources so the screens hold no arithmetic.

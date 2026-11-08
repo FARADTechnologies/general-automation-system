@@ -1,12 +1,13 @@
 // /app/invest and /app/invest/market: portfolio and the market list with sector chips and 1D / 1W / 1M change.
 // No advice: no "buy" badges, rankings or recommendations, only prices and changes.
+import { useBank } from '../../runtime/bank.ts';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hub, useField } from '../../runtime/hub.ts';
 import SimBadge from '../components/SimBadge';
 import { Loading, Empty, ErrorState } from '../components/States';
 // Resources the app API does not expose yet. Each screen keeps its ready layout and shows the loading
-// state until the core team wires the resource (swap notYet(...) for useBank(...)).
+// state until the core team wires the resource (swap useBank(...) for useBank(...)).
 function notYet<T = any>(_resource: string, _params?: Record<string, string | number>) {
   return { status: 'loading' as 'loading' | 'ready' | 'error', data: undefined as unknown as T, reload: () => undefined };
 }
@@ -19,7 +20,7 @@ type Quote = { symbol: string; name: string; type: string; sector: string; price
 export function Portfolio() {
   const nav = useNavigate();
   // TODO(data): portfolio.get -> { value, dayChange: { text, up }, cash, holdings: [{ symbol, name, qty, value, pl: { text, up } }] }
-  const pf = notYet('portfolio');
+  const pf = useBank('portfolio');
   return (
     <section className="screen no-tabs inv-screen">
       <header className="hdr"><button className="icon-btn" aria-label="Back" onClick={() => nav('/')} data-nav-id="back">‹</button><h1>Investments</h1><span /></header>
@@ -64,7 +65,7 @@ export function Market() {
   const s = sector.value || 'all';
   const p = (period.value || '1D') as (typeof PERIODS)[number];
   // TODO(data): market.screen with { sector } returns quotes with change for 1D, 1W and 1M.
-  const quotes = notYet('market', { sector: s });
+  const quotes = useBank('market', { sector: s });
   const set = (field: string, value: string) => intent({ type: 'field.set', form: 'market', field, value });
   return (
     <section className="screen no-tabs inv-screen">

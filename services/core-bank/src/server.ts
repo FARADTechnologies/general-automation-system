@@ -5,6 +5,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { timingSafeEqual } from 'node:crypto';
 import { CoreBank, BankError } from './bank.ts';
 import { mountExtras } from './extras.ts';
+import { mountAppExtras } from './app-extras.ts';
 
 const safeEq = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 const last4 = (s: string) => s.slice(-4);
@@ -135,6 +136,7 @@ export function createCoreBankApp(opts: { serviceKey: string; bank?: CoreBank; k
     const d = custOf(req);
     res.json({ items: d.tmpl.map((t) => ({ id: t.tmpl_ref, title: t.tmpl_nm, type: t.tmpl_typ, amount: major(t.amt_minor), currency: t.ccy, payee: t.bnfcry_ref ? d.bnfcry.find((b) => b.bnfcry_ref === t.bnfcry_ref)?.bnfcry_nm : d.blrs.find((b) => b.blr_cd === t.blr_cd)?.blr_nm })) });
   });
+  mountAppExtras(appApi, bank, (req) => (req as Request & { cust: string }).cust);
   app.use('/app-api/v1', appApi);
 
   // ---------------- errors ----------------

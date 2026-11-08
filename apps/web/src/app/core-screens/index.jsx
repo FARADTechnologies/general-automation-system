@@ -99,8 +99,7 @@ export function HandoffNotice() {
   );
 }
 
+// The designer's /transfers/contact and /subscriptions screens now own those routes.
 export const CORE_SCREENS = [
-  ['/transfers/contact', TransferContact],
   ['/payments/bill', BillPay],
-  ['/subscriptions', Subscriptions],
 ];

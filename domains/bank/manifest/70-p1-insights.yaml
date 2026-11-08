@@ -245,7 +245,7 @@ confirm:
 errors:
   NO_UNPAID: { code: NOTHING_TO_PAY, message: "There are no unpaid bills." }
 ui:
-  route: /app/payments
+  route: /app/bills
 ---
 id: branches.list
 title: Branches
@@ -385,7 +385,7 @@ confirm:
     - { key: start, label: First payment, value: "{result.start}" }
     - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
 ui:
-  route: /app/transfers
+  route: /app/transfers/recurring
 ---
 id: split.calculate
 title: Split an amount

@@ -1,12 +1,13 @@
 // /app/invest/:symbol and /app/invest/order: one instrument and the order form (instrument, side, amount).
 // Submitting asks the runtime to prepare invest.order (R3); the bank confirmation follows.
+import { useBank } from '../../runtime/bank.ts';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { hub, useField } from '../../runtime/hub.ts';
 import SimBadge from '../components/SimBadge';
 import { Loading, ErrorState } from '../components/States';
 // Resources the app API does not expose yet. Each screen keeps its ready layout and shows the loading
-// state until the core team wires the resource (swap notYet(...) for useBank(...)).
+// state until the core team wires the resource (swap useBank(...) for useBank(...)).
 function notYet<T = any>(_resource: string, _params?: Record<string, string | number>) {
   return { status: 'loading' as 'loading' | 'ready' | 'error', data: undefined as unknown as T, reload: () => undefined };
 }
@@ -17,7 +18,7 @@ export function Instrument() {
   const nav = useNavigate();
   const intent = (i: { type: string; [k: string]: unknown }) => hub.intent(i);
   // TODO(data): market.quote -> { name, type, price, change: {1D,1W,1M}, chart: number[] (normalised 0..1), owned?: string }
-  const q = notYet('quote', { symbol });
+  const q = useBank('quote', { symbol });
   const open = (side: 'buy' | 'sell') => {
     intent({ type: 'field.set', form: 'invest-order', field: 'invest-order-instrument', value: symbol });
     intent({ type: 'field.set', form: 'invest-order', field: 'invest-order-side', value: side });
@@ -60,7 +61,7 @@ export function OrderForm() {
   const side = useField('invest-order', 'invest-order-side');
   const amount = useField('invest-order', 'invest-order-amount');
   // TODO(data): the estimate (shares for the amount, fee) comes from the bank, e.g. an invest.order quote resource.
-  const est = notYet('invest.estimate', { symbol: instrument.value, side: side.value, amount: amount.value });
+  const est = useBank('invest.estimate', { symbol: instrument.value, side: side.value, amount: amount.value });
   return (
     <section className="screen no-tabs inv-screen">
       <header className="hdr"><button className="icon-btn" aria-label="Back" onClick={() => nav(`/invest/${instrument.value}`)} data-nav-id="back">‹</button><h1>Order</h1><span /></header>

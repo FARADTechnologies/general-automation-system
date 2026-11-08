@@ -11,13 +11,13 @@ import { masked } from '../components/format';
 type Card = { id: string; name: string; last4: string; status: string };
 type Branch = { id: string; name: string; address: string; hours: string };
 const REASONS = [['damaged', 'Damaged'], ['lost', 'Lost'], ['stolen', 'Stolen'], ['expiring', 'Expiring']] as const;
-// TODO(data): branches for the app (branches.list); the app API has no /branches yet, so the list stays loading.
-const branches = { status: 'loading' as 'loading' | 'ready' | 'error', data: undefined as Branch[] | undefined, reload: () => undefined };
+
 
 export default function CardReplace() {
   const nav = useNavigate();
   const { id = '' } = useParams();
   const summary = useBank<{ cards: Card[] }>('summary');
+  const branches = useBank<Branch[]>('branches');
   const reason = useField('card-replace', 'card-replace-reason');
   const branch = useField('card-replace', 'card-replace-branch');
   const busy = useUi((s) => !['idle', 'paused', 'error', 'handoff'].includes(s.agent.status));

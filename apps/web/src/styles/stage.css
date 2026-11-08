@@ -1,5 +1,5 @@
 /* Projector layout, designed for 1920x1080. */
-.stg { width: 100vw; height: 100vh; overflow: hidden; display: grid; grid-template-columns: 520px 1fr; grid-template-rows: auto 1fr; gap: 20px 32px; padding: 22px 36px 28px; background: #0c1d22; color: #eaf2ef; font-family: var(--font-body); }
+.stg { width: 100vw; height: 100vh; overflow: hidden; display: grid; grid-template-columns: 470px 1fr; grid-template-rows: auto 1fr; gap: 20px 32px; padding: 22px 36px 28px; background: #0c1d22; color: #eaf2ef; font-family: var(--font-body); }
 .stg-head { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; }
 .stg-brand { display: flex; gap: 10px; align-items: center; font-family: var(--font-display); font-size: 24px; font-weight: 700; }
 .stg-sub { font-family: var(--font-body); font-size: 14px; font-weight: 500; opacity: .6; margin-left: 12px; }
@@ -9,7 +9,10 @@
 .stg-phone { width: 420px; height: min(880px, 100%); border-radius: 42px; padding: 9px; background: #050f12; box-shadow: 0 30px 80px rgba(0,0,0,.5); position: relative; }
 .stg-phone .stage { padding: 0; }
 .stg-caption { margin: 0; opacity: .55; font-size: 14px; }
-.stg-main { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto 1fr; gap: 18px; min-height: 0; }
+.stg-main { display: grid; grid-template-columns: 0.8fr 1.2fr; grid-template-rows: auto 1fr; gap: 18px; min-height: 0; }
+.stg-main .stage-plan { min-height: 0; overflow: hidden; }
+.stg-main .stage-sees { min-height: 0; overflow: hidden; }
+.stg .stage-phone-screen .app { width: 100%; height: 100%; border-radius: 0; }
 .stg-card { background: #12272e; border-radius: 20px; padding: 18px 22px; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: hidden; box-shadow: inset 0 0 0 1px #1d3a44; }
 .stg-label { display: flex; gap: 6px; align-items: center; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; opacity: .65; }
 .stg-said { grid-column: 1 / -1; }

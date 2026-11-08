@@ -7,7 +7,8 @@ import { Home as HomeIco, ArrowLeftRight, Receipt, History as HistIco, LayoutGri
 import { useStore } from './store/Store.jsx';
 import { ConfirmProvider } from './components/Confirm.jsx';
 import { SCREENS } from './screens/index.jsx';
-import { CORE_SCREENS, HandoffNotice } from './core-screens/index.jsx';
+import { CORE_SCREENS } from './core-screens/index.jsx';
+import HandoffNotice from './components/HandoffNotice.tsx';
 import { RouteSync, TapLayer, HighlightLayer } from '../runtime/sync.tsx';
 import AgentDock from './agent/AgentDock.tsx';
 import Chooser from './agent/Chooser.tsx';

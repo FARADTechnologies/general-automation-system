@@ -4,6 +4,7 @@ import { Mic, SendHorizontal, Square, Sparkles, Check, X, Loader2, Circle } from
 import { hub, useUi, useConnected } from '../../runtime/hub.ts';
 import { speechSupported, startListening } from '../../runtime/voice.ts';
 import { useMode } from '../App.jsx';
+import { useLocation } from 'react-router-dom';
 
 const STATUS_TEXT: Record<string, string> = {
   idle: 'Ask me to do something',
@@ -20,6 +21,7 @@ let tryCache: string[] | null = null;
 
 export default function AgentDock({ withTabs }: { withTabs: boolean }) {
   const mode = useMode();
+  const onHome = useLocation().pathname === '/';
   const status = useUi((s) => s.agent.status);
   const note = useUi((s) => s.agent.note);
   const plan = useUi((s) => s.plan);
@@ -83,7 +85,7 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
         </div>
       )}
 
-      {!busy && !lastUser && mode === 'phone' && tries.length > 0 && (
+      {!busy && !lastUser && onHome && mode === 'phone' && tries.length > 0 && (
         <div className="try-saying" data-nav-id="agent-try-saying">
           <span className="eyebrow">Try saying</span>
           <div className="try-chips">{tries.map((t) => <button key={t} className="chip" onClick={() => send(t)}>{t}</button>)}</div>

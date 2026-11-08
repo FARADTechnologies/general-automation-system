@@ -44,3 +44,7 @@ evals/results/raw/
 Thumbs.db
 .vscode/
 .idea/
+
+# Eval outputs: summaries are committed via docs; raw runs stay local
+evals/results/*.json
+!evals/results/summary-*.json

@@ -38,11 +38,15 @@ export class AnthropicModel implements ModelClient {
   get model() { return this.opts.model; }
 
   async create(req: ModelRequest, signal?: AbortSignal): Promise<ModelResult> {
+    // The API accepts at most 20 strict tools. State-changing (prepare) tools get strict schemas
+    // first; reads are validated by the agent guard and the Bridge either way.
+    const MAX_STRICT = 20;
+    const strictNames = new Set(req.tools.filter((t) => t.kind === 'prepare').concat(req.tools.filter((t) => t.kind === 'local')).slice(0, MAX_STRICT).map((t) => t.name));
     const tools = req.tools.map((t: ToolMeta, i: number) => ({
       name: t.name,
       description: t.description,
-      input_schema: strictSchema(t.inputSchema) as Anthropic.Beta.Messages.BetaTool.InputSchema,
-      strict: true,
+      input_schema: (strictNames.has(t.name) ? strictSchema(t.inputSchema) : t.inputSchema) as Anthropic.Beta.Messages.BetaTool.InputSchema,
+      ...(strictNames.has(t.name) ? { strict: true } : {}),
       ...(i === req.tools.length - 1 ? { cache_control: { type: 'ephemeral' as const } } : {}),
     }));
     const t0 = Date.now();

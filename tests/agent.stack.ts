@@ -70,8 +70,11 @@ export async function startFullStack(model: ModelClient, opts: { stepMs?: number
     return { accounts: a.items as any[], cards: c.items as any[], bills: b.items as any[] };
   };
 
+  const effects = async (session: string) => (await (await fetch(`${coreSrv.url}/internal/admin/effects?ext_ref=${session}`, { headers: { 'x-cb-svc-key': KEYS.core } })).json()).items;
+  const handoffs = async () => (await (await fetch(`${bridgeSrv.url}/admin/handoffs`, { headers: { authorization: `Bearer ${KEYS.admin}` } })).json()).items;
+
   return {
-    agent, bridge, core, agentUrl: agentSrv.url, bridgeUrl: bridgeSrv.url, customer, device, bankState,
+    agent, bridge, core, agentUrl: agentSrv.url, bridgeUrl: bridgeSrv.url, customer, device, bankState, effects, handoffs,
     close: async () => { bridge.close(); bridgeSrv.close(); agentSrv.close(); coreSrv.close(); },
   };
 }

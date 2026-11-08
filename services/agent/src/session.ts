@@ -85,7 +85,16 @@ export class Session {
       this.maybeShowChooser(res);
       return res;
     } catch (e) {
-      this.setStatus('error', 'Something went wrong. Text input still works; please try again.');
+      // Graceful failure: say plainly what is unavailable, on both screens. Nothing was executed:
+      // every action needs the customer's confirmation on the bank screen.
+      const msg = String((e as Error)?.message || '');
+      const modelDown = /credit balance|overloaded|rate.?limit|api key|authentication|timed? ?out|ECONN|fetch failed|5\d\d/i.test(msg);
+      const text = modelDown
+        ? 'The assistant is unavailable right now. Nothing was changed. You can still use the app by hand.'
+        : 'Something went wrong. Nothing was changed. Please try again.';
+      this.transcript('agent', text);
+      this.hub.emit('agent.message', { text });
+      this.setStatus('error', text);
       throw e;
     } finally {
       this.busy = false;

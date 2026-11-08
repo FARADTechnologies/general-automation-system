@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { loadEnv } from '@gas/shared/env';
 import { CORE_PROMPT, DEFAULT_CONFIG } from '@gas/agent-core';
 import { AnthropicModel } from './model.ts';
+import { GeminiModel } from './model-gemini.ts';
 import { createAgentServer } from './server.ts';
 
 loadEnv();
@@ -12,7 +13,10 @@ const domainPrompt = readFileSync(resolve(root, 'domains/bank/prompt.md'), 'utf8
 const screens = JSON.parse(readFileSync(resolve(root, 'domains/bank/screens.json'), 'utf8')) as Record<string, string>;
 const tryCommands = JSON.parse(readFileSync(resolve(root, 'domains/bank/try-commands.json'), 'utf8')) as string[];
 
-const model = new AnthropicModel({
+// AGENT_PROVIDER selects the model behind the same interface: anthropic (default) or gemini.
+const model = process.env.AGENT_PROVIDER === 'gemini'
+  ? new GeminiModel({ model: process.env.GEMINI_MODEL || 'gemini-3.6-flash', fallbacks: (process.env.GEMINI_FALLBACKS || 'gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-2.5-flash').split(',').filter(Boolean), apiKey: process.env.GEMINI_API_KEY || '', thinkingLevel: (process.env.GEMINI_THINKING as 'low') || 'low' })
+  : new AnthropicModel({
   model: process.env.AGENT_MODEL || 'claude-sonnet-5-5',
   effort: (process.env.AGENT_EFFORT as 'low' | 'medium' | 'high') || 'medium',
   thinking: (process.env.AGENT_THINKING as 'between_tools' | 'adaptive') || 'between_tools',

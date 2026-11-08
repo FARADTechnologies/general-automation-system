@@ -11,6 +11,7 @@ import YAML from '../services/bridge/node_modules/yaml/dist/index.js';
 import { loadEnv } from '../packages/shared/src/env.ts';
 import { CORE_PROMPT } from '../packages/agent-core/src/index.ts';
 import { AnthropicModel } from '../services/agent/src/model.ts';
+import { GeminiModel } from '../services/agent/src/model-gemini.ts';
 import { startFullStack } from '../tests/agent.stack.ts';
 
 loadEnv();
@@ -78,11 +79,14 @@ async function main() {
   const raw = readFileSync(file, 'utf8');
   let scenarios = YAML.parse(raw) as Scenario[];
   if (ONLY) scenarios = scenarios.filter((s) => s.id.includes(ONLY) || s.group === ONLY);
-  const model = new AnthropicModel({ model: MODEL, effort: EFFORT, thinking: THINKING, fallback: process.env.AGENT_FALLBACK !== '0' });
+  const PROVIDER = arg('provider', process.env.AGENT_PROVIDER || 'anthropic');
+  const model = PROVIDER === 'gemini'
+    ? new GeminiModel({ model: arg('model', process.env.GEMINI_MODEL || 'gemini-3.6-flash'), fallbacks: (process.env.GEMINI_FALLBACKS || 'gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-2.5-flash').split(','), apiKey: process.env.GEMINI_API_KEY || '', thinkingLevel: (arg('thinking', 'low') as 'low') })
+    : new AnthropicModel({ model: MODEL, effort: EFFORT, thinking: THINKING, fallback: process.env.AGENT_FALLBACK !== '0' });
   const st = await startFullStack(model, { stepMs: 5 });
   const promptHash = createHash('sha256').update(CORE_PROMPT + readFileSync(resolve(ROOT, 'domains/bank/prompt.md'), 'utf8')).digest('hex').slice(0, 12);
   const started = new Date().toISOString();
-  console.log(`eval set=${SET} scenarios=${scenarios.length} repeats=${REPEATS} model=${MODEL} effort=${EFFORT} thinking=${THINKING} prompt=${promptHash}`);
+  console.log(`eval set=${SET} scenarios=${scenarios.length} repeats=${REPEATS} model=${model.model} effort=${EFFORT} thinking=${THINKING} prompt=${promptHash}`);
 
   const jobs = scenarios.flatMap((s) => Array.from({ length: REPEATS }, (_, r) => ({ s, r })));
   const records: any[] = [];
@@ -162,7 +166,7 @@ async function main() {
   });
   const summary = {
     label: 'Offline evaluation on synthetic scenarios',
-    set: SET, scenarios: byScenario.size, repeats: REPEATS, runs: n, model: MODEL, effort: EFFORT, thinking: THINKING, prompt_hash: promptHash,
+    set: SET, scenarios: byScenario.size, repeats: REPEATS, runs: n, model: model.model, effort: EFFORT, thinking: THINKING, prompt_hash: promptHash,
     started, finished: new Date().toISOString(), scenario_file_sha256: createHash('sha256').update(raw).digest('hex'),
     task_success: { passed: k, rate: n ? k / n : 0, wilson95: wilson(k, n) },
     severity: Object.fromEntries(['S1', 'S2', 'S3', 'S4'].map((l) => [l, { count: sev(l), rate: n ? sev(l) / n : 0, wilson95: wilson(sev(l), n) }])),

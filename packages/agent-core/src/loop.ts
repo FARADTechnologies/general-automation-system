@@ -240,7 +240,14 @@ export async function runTurn(
       res.confirmations.push({ prepared_id: preparedId, capability: meta!.capability, outcome, verified });
       trace({ kind: 'confirmation', name: meta!.capability, decision: outcome, detail: { prepared_id: preparedId, verified } });
       injectLedger = true;
-      const content = { prepared: out.data, customer_decision: outcome, executed_and_verified: verified, error: conf.error || (status.ok ? undefined : status.error) };
+      // The final word comes from the Bridge after the customer decided; the stale "nothing has been
+      // executed" note from prepare time is dropped so no model reads it as the current state.
+      const result = outcome === 'committed' && verified ? 'Executed and verified by the bank. Tell the customer it is done.'
+        : outcome === 'denied' ? 'The customer declined on the bank screen. Nothing was executed.'
+        : outcome === 'expired' ? 'The confirmation expired. Nothing was executed.'
+        : outcome === 'stopped' || outcome === 'cancelled' ? 'Cancelled. Nothing was executed.'
+        : 'The bank did not complete this. Nothing can be assumed done.';
+      const content = { prepared_id: preparedId, capability: meta!.capability, details: out.data.details, customer_decision: outcome, executed_and_verified: verified, result, error: conf.error || (status.ok ? undefined : status.error) };
       return { type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(content), is_error: outcome !== 'committed' };
     };
 

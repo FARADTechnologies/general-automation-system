@@ -1,0 +1,26 @@
+/* /stage presentational components, sized for a 1920x1080 projector */
+.stage-phone { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.stage-phone-screen { width: 390px; height: 844px; border-radius: 48px; overflow: hidden; position: relative; background: var(--bg); box-shadow: 0 0 0 12px #0d1417, 0 0 0 14px #2a3a40, 0 40px 80px rgba(0, 0, 0, .45); }
+@media (max-height: 1000px) { .stage-phone-screen { transform: scale(.88); transform-origin: top center; margin-bottom: -100px; } }
+.stage-caption { font-size: 18px; color: var(--muted); }
+.stage-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 24px 28px; color: var(--text); }
+.stage-panel h2 { font-size: 20px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+.stage-muted { color: var(--muted); font-size: 22px; margin: 0; }
+.stage-goal { font-size: 28px; font-weight: 650; margin: 0 0 16px; line-height: 1.3; }
+.stage-plan ol, .stage-sees ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.stage-step { display: flex; align-items: center; gap: 14px; font-size: 24px; color: var(--muted); }
+.stage-step.p-running { color: var(--text); font-weight: 650; }
+.stage-step.p-done { color: var(--text); }
+.stage-step.p-done svg { color: var(--sea); }
+.stage-step.p-failed svg { color: var(--coral); }
+.stage-step.p-skipped span:first-of-type { text-decoration: line-through; }
+.stage-waiting { margin: 18px 0 0; padding: 12px 16px; border-radius: 14px; font-size: 22px; font-weight: 650; background: color-mix(in srgb, #e0a100 18%, var(--surface)); }
+.stage-sees-head { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.stage-sees li { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+.stage-sees-step { grid-column: 1 / -1; font-size: 18px; font-weight: 650; display: flex; gap: 10px; align-items: center; }
+.stage-sees code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 16px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); white-space: pre-wrap; word-break: break-word; }
+.stage-guard { font-size: 14px; font-weight: 700; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; }
+.stage-guard.g-allow { background: color-mix(in srgb, var(--sea) 18%, transparent); }
+.stage-guard.g-hold { background: color-mix(in srgb, #e0a100 22%, transparent); }
+.stage-guard.g-block { background: color-mix(in srgb, var(--coral) 20%, transparent); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

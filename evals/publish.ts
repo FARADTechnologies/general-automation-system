@@ -10,7 +10,7 @@ const read = (set: string) => {
   return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : null;
 };
 const dev = read('dev');
-const hold = read('holdout');
+const hold = read('holdout2') ?? read('holdout');
 const pc = (x: number) => (x * 100).toFixed(1) + '%';
 const ci = (w: number[]) => `${pc(w[0])}–${pc(w[1])}`;
 
@@ -65,7 +65,7 @@ const md = `# Reliability
 
 Every figure below comes from \`evals/runner.ts\` output (\`evals/results/summary-latest.json\`). Zero S1 in N runs only says the S1 rate is likely below the stated upper bound; it is not a guarantee.
 
-${section('Holdout (reported numbers)', hold)}
+${section(hold?.summary?.set === 'holdout2' ? 'Holdout 2 (reported numbers)' : 'Holdout 1 (contaminated after analysis; superseded by holdout 2)', hold)}
 ${section('Dev set (used while tuning, not for claims)', dev)}
 ## Method notes
 

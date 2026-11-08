@@ -1,0 +1,46 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+out/
+.vite/
+*.tsbuildinfo
+coverage/
+
+# Runtime data
+*.sqlite
+*.sqlite-journal
+*.db
+data/runtime/
+logs/
+*.log
+
+# Audio (raw audio is never persisted)
+*.wav
+*.webm
+*.ogg
+*.mp3
+*.m4a
+*.aac
+*.opus
+
+# Test output
+test-results/
+playwright-report/
+evals/results/raw/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

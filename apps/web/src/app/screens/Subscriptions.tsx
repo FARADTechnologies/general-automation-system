@@ -1,5 +1,6 @@
 // /subscriptions: subscriptions charged to the customer's cards, with cancel (subscription.cancel.prepare, R2).
 import React from 'react';
+import '../../styles/subscriptions.css';
 import { useNavigate } from 'react-router-dom';
 import { Repeat } from 'lucide-react';
 import { hub, useUi } from '../../runtime/hub.ts';

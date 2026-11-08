@@ -38,7 +38,7 @@ export default function Stage() {
   useHubEvent(['confirm.required', 'confirm.resolved', 'bank.changed'], useCallback(() => { void refreshBank(); }, [refreshBank]));
   useEffect(() => { void refreshBank(); }, [refreshBank]);
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if (e.key === 'b' || e.key === 'B') setBackup((x) => !x); if (e.key === 'r' && e.ctrlKey && e.shiftKey) void hub.reset().then(() => { setTraces([]); setBank([]); }); };
+    const k = (e: KeyboardEvent) => { if (e.key === 'b' || e.key === 'B') setBackup((x) => !x); if (e.key.toLowerCase() === 'r' && e.altKey && e.shiftKey) void hub.reset().then(() => { setTraces([]); setBank([]); }); };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
   }, []);

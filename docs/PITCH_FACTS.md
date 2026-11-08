@@ -1,0 +1,43 @@
+# Pitch facts
+
+Every claim used in the pitch, its value, where it comes from, and whether it is **measured** (by us, reproducible), **published** (third-party source), or **assumed** (input to a model, not a fact). Anything not in this table is not said on stage.
+
+## Product evidence (measured)
+
+| Claim | Value | Source | Type |
+|---|---|---|---|
+| Invariant tests passing | see latest `pnpm test` (60 tests on 2026-11-08) | `tests/` | measured |
+| Holdout task success | see `docs/RELIABILITY.md` | `evals/results/summary-latest.json` | measured, offline, synthetic |
+| Critical errors (S1) on holdout | see `docs/RELIABILITY.md` | same | measured, offline, synthetic |
+| Unauthorized commits | see `docs/RELIABILITY.md` | same | measured |
+| Time from request to the bank confirmation screen, simple transfer | ~4 s (two model calls, single live runs on 2026-11-08) | `tests/agent.live.test.ts` log | measured, small sample; replace with eval p50 |
+| Model cost per completed task | see `docs/RELIABILITY.md` (dev set: $0.0125 mean on 2026-11-08) | eval summary | measured |
+| Capabilities live | see `docs/CAPABILITY_MATRIX.md` | matrix | measured (tested rows only) |
+| New capability without code change | demonstrated: `fx.rates` switched on from the console, works on next turn | `tests/console.test.ts` | measured |
+
+## Manual versus assistant (to measure)
+
+| Claim | Value | Source | Type |
+|---|---|---|---|
+| Taps and time to block a lost card and order a replacement manually in a real bank app | pending | tester's `manual_baseline.md` | measured (pending) |
+| Same task with the assistant | one sentence + 2 taps; time from eval | `evals/demo` | measured |
+| Designer prototype: paying a traffic fine manually | 5 taps vs 1 sentence + 2 taps | designer landing brief (`import/design-with-dashboard`) | measured on the prototype, not on our app; do not use unless re-measured |
+
+## Market (published, sources to be filled by the team)
+
+| Claim | Value | Source | Type |
+|---|---|---|---|
+| ABB assistant features (transfers by contact, card or template; card block/reactivate; mobile top-up; income/expense analysis; subscriptions) | as listed | ABB public pages (URL to add) | published |
+| Competitors | interface.ai, Bank of America Erica, Revolut AIR, Nymbus MCP server, Danske Bank MCP pilot | public announcements (URLs to add) | published |
+
+## Business model (assumed until a bank gives inputs)
+
+Value per year = request volume × routine share × automation rate × (human cost per request − AI cost per request).
+
+| Input | Value | Type |
+|---|---|---|
+| AI cost per request | measured model cost per task (above) plus hosting | measured + assumed |
+| Request volume, routine share, human cost | to be provided by a bank | assumed |
+| Pricing hypothesis | platform fee plus a fee per resolved action | assumed (captain to update after judge conversations) |
+
+Business KPIs to frame (not measured here): self-service completion rate, cost per resolved request, handle time, handoff rate.

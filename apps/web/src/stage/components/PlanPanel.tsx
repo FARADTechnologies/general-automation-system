@@ -1,5 +1,6 @@
 // Large plan panel for the stage: the goal and every step with its status, readable from the back of a room.
 import React from 'react';
+import '../../styles/stage-panels.css';
 import { Check, Circle, Loader2, X, Minus } from 'lucide-react';
 
 export type PlanStep = { id: string; title: string; status: 'pending' | 'running' | 'done' | 'failed' | 'skipped' };

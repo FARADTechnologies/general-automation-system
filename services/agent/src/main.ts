@@ -6,12 +6,15 @@ import { CORE_PROMPT, DEFAULT_CONFIG } from '@gas/agent-core';
 import { AnthropicModel } from './model.ts';
 import { GeminiModel } from './model-gemini.ts';
 import { createAgentServer } from './server.ts';
+import { sttFromEnv } from './stt.ts';
 
 loadEnv();
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const domainPrompt = readFileSync(resolve(root, 'domains/bank/prompt.md'), 'utf8');
 const screens = JSON.parse(readFileSync(resolve(root, 'domains/bank/screens.json'), 'utf8')) as Record<string, string>;
 const tryCommands = JSON.parse(readFileSync(resolve(root, 'domains/bank/try-commands.json'), 'utf8')) as string[];
+const sttHints = JSON.parse(readFileSync(resolve(root, 'domains/bank/stt-hints.json'), 'utf8')) as string[];
+const stt = sttFromEnv(process.env, sttHints);
 
 // AGENT_PROVIDER selects the model behind the same interface: anthropic (default) or gemini.
 const model = process.env.AGENT_PROVIDER === 'gemini'
@@ -39,6 +42,7 @@ const { server } = createAgentServer({
   maxInputsPerMinute: 12,
   screens,
   tryCommands,
+  stt,
 });
 const port = Number(process.env.AGENT_PORT || 4300);
-server.listen(port, '127.0.0.1', () => console.log(`agent listening on ${port} (model ${model.model})`));
+server.listen(port, '127.0.0.1', () => console.log(`agent listening on ${port} (model ${model.model}; speech-to-text ${stt.enabled ? stt.providers.join(' then ') : 'off, browser speech only'})`));

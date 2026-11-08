@@ -6,6 +6,7 @@ import { createCoreBankApp } from '../services/core-bank/src/server.ts';
 import { createBridge } from '../services/bridge/src/server.ts';
 import { createAgentServer } from '../services/agent/src/server.ts';
 import type { RuntimeConfig } from '../services/agent/src/session.ts';
+import type { SttService } from '../services/agent/src/stt.ts';
 import { CORE_PROMPT, DEFAULT_CONFIG, type ModelClient, type ModelRequest, type ModelResult, type Message } from '../packages/agent-core/src/index.ts';
 
 export const ROOT = resolve(import.meta.dirname, '..');
@@ -17,14 +18,15 @@ const listen = (srv: { listen: (p: number, h: string, cb: () => void) => unknown
     const s = target.listen(0, '127.0.0.1', () => res({ url: `http://127.0.0.1:${((s as { address: () => AddressInfo }).address() as AddressInfo).port}`, close: () => (s as { close: () => void }).close() }));
   });
 
-export async function startFullStack(model: ModelClient, opts: { stepMs?: number } = {}) {
+export async function startFullStack(model: ModelClient, opts: { stepMs?: number; stt?: SttService } = {}) {
   const core = createCoreBankApp({ serviceKey: KEYS.core, kbDir: resolve(ROOT, 'domains/bank/kb') });
   const coreSrv = await listen(core.app as never);
-  const cfg: RuntimeConfig & { webhookSecret: string } = {
+  const cfg: RuntimeConfig & { webhookSecret: string; stt?: SttService } = {
     bridgeUrl: '', agentKey: KEYS.agent, webhookSecret: KEYS.hook, model,
     loop: { ...DEFAULT_CONFIG, systemPrompt: `${CORE_PROMPT}\n\n${readFileSync(resolve(ROOT, 'domains/bank/prompt.md'), 'utf8')}` },
     choreographyStepMs: opts.stepMs ?? 5, confirmTimeoutMs: 20_000, maxInputsPerMinute: 100,
     screens: JSON.parse(readFileSync(resolve(ROOT, 'domains/bank/screens.json'), 'utf8')),
+    stt: opts.stt,
   };
   const agent = createAgentServer(cfg);
   const agentSrv = await new Promise<{ url: string; close: () => void }>((res) => {

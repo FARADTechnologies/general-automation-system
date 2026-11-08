@@ -28,7 +28,7 @@ export interface ToolPort {
 
 export interface TraceEvent {
   trace_id: string; at: number;
-  kind: 'input' | 'ingress' | 'llm' | 'tool_call' | 'tool_result' | 'guard' | 'confirmation' | 'lint' | 'answer' | 'cap';
+  kind: 'input' | 'stt' | 'ingress' | 'llm' | 'tool_call' | 'tool_result' | 'guard' | 'confirmation' | 'lint' | 'answer' | 'cap';
   name?: string; decision?: string; detail?: Record<string, unknown>;
 }
 export interface ConfirmationOutcome { outcome: 'committed' | 'denied' | 'expired' | 'failed' | 'cancelled' | 'stopped'; verified: boolean; error?: { code: string; message: string } }

@@ -1,4 +1,5 @@
 // One demo session: conversation state, hub, Bridge connection, and the UI choreographer.
+import { randomUUID } from 'node:crypto';
 import { runTurn, newSessionState, type SessionState, type TurnResult, type ConfirmationOutcome, type ModelClient, type LoopConfig, type ToolPort, type ToolMeta, type Ledger, type TraceEvent } from '@gas/agent-core';
 import { BridgeSession } from './bridgeClient.ts';
 import { Hub } from './hub.ts';
@@ -114,6 +115,11 @@ export class Session {
     const steps = l.steps.map((s) => ({ id: s.id, title: s.title, status: s.status }));
     this.hub.patch({ plan: steps.length ? { taskId: l.task_id, goal: l.goal, steps } : null });
     this.hub.emit('agent.step', { taskId: l.task_id, steps, pending: l.pending?.type || null });
+  }
+
+  /** Records a speech-to-text outcome (provider, timing, fallback; never the audio). */
+  noteStt(ok: boolean, detail: Record<string, unknown>) {
+    this.onTrace({ trace_id: `stt-${randomUUID()}`, at: Date.now(), kind: 'stt', name: String(detail.provider || 'stt'), decision: ok ? 'transcribed' : 'failed', detail });
   }
 
   private onTrace(e: TraceEvent) {

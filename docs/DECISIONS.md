@@ -49,3 +49,5 @@ One line per reversible decision. Newest at the bottom.
 - 2026-11-09 After the customer confirms, the tool result says plainly that the action was executed and verified; a stale "nothing executed" note made one model ask for confirmation again.
 - 2026-11-09 Production launcher registers tsx in-process (`node --import tsx`), one process per service: ~300 MB in total, which fits Railway's Free plan.
 - 2026-11-09 Hosting: Railway Free plan, project `general-automation-system`, one container. The Cloudflare tunnel stays as backup.
+- 2026-11-09 Server speech-to-text follows the team's bake-off: ElevenLabs Scribe v2 with the 22 fixed domain terms first, Groq Whisper large-v3 with the same terms as fallback, 2.5 s deadline each. It runs in the agent service; the browser records one utterance with MediaRecorder and sends it. Without keys the app keeps using browser speech.
+- 2026-11-09 A transcript goes in as an ordinary voice turn, so it is shown on both screens and passes the same ingress tokenizer and guards. The STT trace keeps provider, timing and size only, never audio or text.

@@ -4,8 +4,9 @@ import { createServer, type Server } from 'node:http';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { SessionManager, type RuntimeConfig } from './session.ts';
+import type { SttService } from './stt.ts';
 
-export function createAgentServer(cfg: RuntimeConfig & { webhookSecret: string; tryCommands?: string[] }) {
+export function createAgentServer(cfg: RuntimeConfig & { webhookSecret: string; tryCommands?: string[]; stt?: SttService }) {
   const sessions = new SessionManager(cfg);
   const app = express();
   app.use('/hooks/bridge', express.raw({ type: '*/*', limit: '64kb' }));
@@ -29,7 +30,33 @@ export function createAgentServer(cfg: RuntimeConfig & { webhookSecret: string; 
     next();
   };
 
-  app.get('/api/agent/config', (_req, res) => { res.json({ tryCommands: cfg.tryCommands || [], model: cfg.model.model }); });
+  app.get('/api/agent/config', (_req, res) => { res.json({ tryCommands: cfg.tryCommands || [], model: cfg.model.model, stt: !!cfg.stt?.enabled }); });
+
+  // Push-to-talk: one whole utterance in, its transcript out. The client then sends the text as a
+  // normal voice turn, so it shows on every screen and passes the same ingress tokenizer and guards.
+  // Audio is held in memory for this request only (I10).
+  const sttHits = new Map<string, number[]>();
+  app.post('/api/agent/sessions/:s/stt', withSession, express.raw({ type: () => true, limit: '3mb' }), async (req, res) => {
+    const id = String(req.params.s);
+    if (!cfg.stt?.enabled) { res.status(503).json({ error: 'STT_DISABLED' }); return; }
+    const recent = (sttHits.get(id) || []).filter((t) => Date.now() - t < 60_000);
+    if (recent.length >= 20) { res.status(429).json({ error: 'RATE_LIMIT' }); return; }
+    recent.push(Date.now()); sttHits.set(id, recent);
+    const mime = String(req.header('content-type') || '');
+    const audio = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    if (!/^audio\//i.test(mime)) { res.status(415).json({ error: 'AUDIO_ONLY' }); return; }
+    if (audio.length < 1200) { res.status(400).json({ error: 'TOO_SHORT' }); return; }
+    const session = sessions.get(id);
+    try {
+      const r = await cfg.stt.transcribe(audio, mime);
+      session.noteStt(true, { provider: r.provider, latency_ms: r.latencyMs, fallback_used: r.fallbackUsed, bytes: audio.length, format: mime.split(';')[0], attempts: r.attempts });
+      res.json({ text: r.text, provider: r.provider, latencyMs: r.latencyMs, fallbackUsed: r.fallbackUsed });
+    } catch (e) {
+      const attempts = ((e as { attempts?: unknown[] }).attempts || []) as { provider: string; status: string; ms: number }[];
+      session.noteStt(false, { bytes: audio.length, format: mime.split(';')[0], attempts: attempts.map((a) => ({ provider: a.provider, status: a.status, ms: a.ms })) });
+      res.status(502).json({ error: 'STT_FAILED' });
+    }
+  });
 
   app.post('/api/agent/sessions/:s/input', withSession, async (req, res) => {
     const s = sessions.get(String(req.params.s));

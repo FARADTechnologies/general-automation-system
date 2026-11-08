@@ -13,6 +13,8 @@ railway variables --service app \
   --set "GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.6-flash}" \
   --set "GEMINI_FALLBACKS=${GEMINI_FALLBACKS:-gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-2.5-flash}" \
   --set "BRIDGE_CONSOLE_PASSCODE=$(get BRIDGE_CONSOLE_PASSCODE)" \
+  --set "ELEVENLABS_API_KEY=$(get ELEVENLABS_API_KEY)" \
+  --set "GROQ_API_KEY=$(get GROQ_API_KEY)" \
   --set "AGENT_MODEL=${AGENT_MODEL:-claude-sonnet-5-5}" \
   --set "AGENT_EFFORT=${AGENT_EFFORT:-medium}" \
   --set "AGENT_THINKING=${AGENT_THINKING:-between_tools}" \

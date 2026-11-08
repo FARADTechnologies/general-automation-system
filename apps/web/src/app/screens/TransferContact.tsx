@@ -2,6 +2,7 @@
 // Note: main registers its own /transfers/contact in core-screens; this version reads contacts
 // from the bank API (masked) instead of the old seed. The core team decides which one routes.
 import React from 'react';
+import '../../styles/transfer-contact.css';
 import { useNavigate } from 'react-router-dom';
 import { hub, useField, useUi } from '../../runtime/hub.ts';
 import { useBank } from '../../runtime/bank.ts';

@@ -1,6 +1,7 @@
 // Shared screen states. Every data screen renders one of these while it is not "ready",
 // so loading, empty and error look the same everywhere (UI_CONTRACT 5.6).
 import React from 'react';
+import '../../styles/states.css';
 
 export function Loading({ label = 'Loading…' }: { label?: string }) {
   return (

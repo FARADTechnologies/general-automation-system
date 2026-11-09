@@ -4,9 +4,8 @@ import { createServer, type Server } from 'node:http';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { SessionManager, type RuntimeConfig } from './session.ts';
-import { Readable } from 'node:stream';
 import type { SttService } from './stt.ts';
-import { speakable, type TtsService } from './tts.ts';
+import { speakable, PHRASES, type TtsService } from './tts.ts';
 
 export function createAgentServer(cfg: RuntimeConfig & { webhookSecret: string; tryCommands?: string[]; stt?: SttService; tts?: TtsService }) {
   const sessions = new SessionManager(cfg);
@@ -36,25 +35,36 @@ export function createAgentServer(cfg: RuntimeConfig & { webhookSecret: string; 
 
   // Spoken replies: only an assistant answer already in this session's transcript can be spoken,
   // never text sent by the client. Rate- and size-limited per session so the speech quota holds.
+  // When the phone has voice on, the session starts the audio as soon as the answer exists, so
+  // this request usually finds it ready.
   const ttsHits = new Map<string, number[]>();
-  const ttsChars = new Map<string, number>();
   app.get('/api/agent/sessions/:s/tts/:id', withSession, async (req, res) => {
     const id = String(req.params.s);
     if (!cfg.tts?.enabled) { res.status(503).json({ error: 'TTS_DISABLED' }); return; }
-    const entry = sessions.get(id).hub.state.transcript.find((t: { id: string; role: string }) => t.id === String(req.params.id) && t.role === 'agent');
-    if (!entry) { res.status(404).json({ error: 'NO_SUCH_ANSWER' }); return; }
-    const text = speakable(entry.text);
-    const recent = (ttsHits.get(id) || []).filter((t) => Date.now() - t < 60_000);
-    const used = ttsChars.get(id) || 0;
-    if (recent.length >= 12 || used + text.length > Number(process.env.TTS_SESSION_CHAR_CAP || 6000)) { res.status(429).json({ error: 'RATE_LIMIT' }); return; }
-    recent.push(Date.now()); ttsHits.set(id, recent); ttsChars.set(id, used + text.length);
-    try {
-      const r = await cfg.tts.stream(text);
-      res.writeHead(200, { 'content-type': 'audio/mpeg', 'cache-control': 'private, max-age=600', 'x-tts-model': r.model });
-      Readable.fromWeb(r.body as never).on('error', () => res.end()).pipe(res);
-    } catch {
-      res.status(502).json({ error: 'TTS_FAILED' });
+    const session = sessions.get(id);
+    const key = `${id}:${String(req.params.id)}`;
+    if (!cfg.tts.has(key)) {
+      const entry = session.hub.state.transcript.find((t: { id: string; role: string }) => t.id === String(req.params.id) && t.role === 'agent');
+      if (!entry) { res.status(404).json({ error: 'NO_SUCH_ANSWER' }); return; }
+      const text = speakable(entry.text);
+      const recent = (ttsHits.get(id) || []).filter((t) => Date.now() - t < 60_000);
+      if (recent.length >= 12 || session.ttsChars + text.length > Number(process.env.TTS_SESSION_CHAR_CAP || 6000)) { res.status(429).json({ error: 'RATE_LIMIT' }); return; }
+      recent.push(Date.now()); ttsHits.set(id, recent); session.ttsChars += text.length;
+      cfg.tts.start(key, text);
     }
+    if (!(await cfg.tts.pipe(key, res))) res.status(502).json({ error: 'TTS_FAILED' });
+  });
+  // The phone says whether spoken replies are on, so answers are voiced only when someone listens.
+  app.post('/api/agent/sessions/:s/voice', withSession, (req, res) => {
+    sessions.get(String(req.params.s)).voiceOn = !!(req.body && req.body.on);
+    res.json({ ok: true });
+  });
+  // Fixed lines for moments of the flow (for example when the bank screen opens). Synthesised once.
+  app.get('/api/agent/tts/phrase/:key', async (req, res) => {
+    const key = String(req.params.key);
+    if (!cfg.tts?.enabled || !(key in PHRASES)) { res.status(404).json({ error: 'NO_SUCH_PHRASE' }); return; }
+    cfg.tts.start('phrase:' + key, PHRASES[key]);
+    if (!(await cfg.tts.pipe('phrase:' + key, res))) res.status(502).json({ error: 'TTS_FAILED' });
   });
 
   // Push-to-talk: one whole utterance in, its transcript out. The client then sends the text as a

@@ -31,6 +31,19 @@ describe('voice provider', () => {
     expect(seen).toEqual(['first', 'second']);
     expect(r.model).toBe('second');
   });
+  it('keeps a started clip so a later listener gets it without a second synthesis', async () => {
+    let calls = 0;
+    const f = (async () => { calls++; return new Response(new Uint8Array([7, 8, 9]), { status: 200 }); }) as unknown as typeof fetch;
+    const t = new TtsService({ apiKey: 'k', voiceId: 'v', models: ['m'], timeoutMs: 1000, fetchImpl: f });
+    t.start('s:a1', 'hello');
+    t.start('s:a1', 'hello'); // reused
+    const got: number[] = [];
+    let status = 0, ended = false;
+    const res = { headersSent: false, writeHead(st: number) { status = st; this.headersSent = true; }, write(b: Buffer) { got.push(...b); }, end() { ended = true; } };
+    expect(await t.pipe('s:a1', res)).toBe(true);
+    expect(status).toBe(200); expect(ended).toBe(true); expect(got).toEqual([7, 8, 9]);
+    expect(calls).toBe(1);
+  });
   it('is off without a key', () => {
     expect(new TtsService({ apiKey: '', voiceId: 'v', models: ['m'], timeoutMs: 1 }).enabled).toBe(false);
   });

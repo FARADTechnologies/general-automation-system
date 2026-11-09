@@ -12,9 +12,67 @@ export interface TtsConfig {
   fetchImpl?: typeof fetch;
 }
 
+/** Fixed lines spoken at moments of the flow (no model text involved). Synthesised once. */
+export const PHRASES: Record<string, string> = {
+  confirm: 'Please check the details on the bank screen, and confirm.',
+};
+
+interface Clip { chunks: Buffer[]; done: boolean; failed: boolean; waiters: Set<() => void>; at: number; model?: string }
+
 export class TtsService {
+  private clips = new Map<string, Clip>();
   constructor(private cfg: TtsConfig) {}
   get enabled() { return !!this.cfg.apiKey && this.cfg.voiceId !== 'none'; }
+  has(key: string) { const c = this.clips.get(key); return !!c && !c.failed; }
+
+  /** Start synthesis now and keep the audio, so a listener that asks later gets it at once.
+   *  Starting the same key twice reuses the first. */
+  start(key: string, text: string): void {
+    if (this.has(key)) return;
+    const clip: Clip = { chunks: [], done: false, failed: false, waiters: new Set(), at: Date.now() };
+    this.clips.set(key, clip);
+    this.evict();
+    const wake = () => { for (const w of clip.waiters) w(); };
+    void (async () => {
+      try {
+        const r = await this.stream(text);
+        clip.model = r.model;
+        const reader = r.body.getReader();
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          clip.chunks.push(Buffer.from(value));
+          wake();
+        }
+        clip.done = true;
+      } catch {
+        clip.failed = true;
+      }
+      wake();
+    })();
+  }
+
+  /** Send a started clip to an HTTP response as it arrives. Returns false if it failed before any audio. */
+  async pipe(key: string, res: { headersSent: boolean; writeHead: (s: number, h: Record<string, string>) => unknown; write: (b: Buffer) => unknown; end: () => unknown }): Promise<boolean> {
+    const clip = this.clips.get(key);
+    if (!clip) return false;
+    let sent = 0;
+    for (;;) {
+      if (clip.failed && sent === 0 && !res.headersSent) return false;
+      if (sent < clip.chunks.length && !res.headersSent) res.writeHead(200, { 'content-type': 'audio/mpeg', 'cache-control': 'private, max-age=600', ...(clip.model ? { 'x-tts-model': clip.model } : {}) });
+      while (sent < clip.chunks.length) res.write(clip.chunks[sent++]);
+      if (clip.done || clip.failed) { if (!res.headersSent) return false; res.end(); return true; }
+      await new Promise<void>((r) => { const w = () => { clip.waiters.delete(w); r(); }; clip.waiters.add(w); setTimeout(w, 15000); });
+    }
+  }
+
+  /** Synthesise the fixed phrases and open the connection to the provider before anyone asks. */
+  warm() { if (this.enabled) for (const [k, t] of Object.entries(PHRASES)) this.start('phrase:' + k, t); }
+
+  private evict() {
+    const old = Date.now() - 10 * 60_000;
+    for (const [k, c] of this.clips) if (!k.startsWith('phrase:') && (c.at < old || this.clips.size > 300)) this.clips.delete(k);
+  }
 
   /** Starts synthesis and returns the audio stream (MP3) as soon as the provider answers. */
   async stream(text: string): Promise<{ body: ReadableStream<Uint8Array>; model: string; firstByteMs: number }> {

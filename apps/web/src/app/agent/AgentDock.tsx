@@ -6,7 +6,7 @@ import { speechSupported, startListening } from '../../runtime/voice.ts';
 import { useMode } from '../App.jsx';
 import { useLocation } from 'react-router-dom';
 import { RichText } from '../../runtime/RichText';
-import { speakAnswer, unlockAudio, stopSpeaking, voiceRepliesOn, setVoiceReplies } from '../../runtime/speech.ts';
+import { speakAnswer, unlockAudio, stopSpeaking, voiceRepliesOn, setVoiceReplies, announceVoice, playPhrase } from '../../runtime/speech.ts';
 
 const STATUS_TEXT: Record<string, string> = {
   idle: 'Ask me to do something',
@@ -47,14 +47,14 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
   const send = (t: string) => {
     const v = t.trim();
     if (!v || busy) return;
-    unlockAudio(); stopSpeaking();
+    unlockAudio(); stopSpeaking(); void announceVoice(hub.session, voiceOn);
     hub.input(v, 'text');
     setText('');
     setOpen(true);
   };
 
   const micDown = () => {
-    unlockAudio(); stopSpeaking();
+    unlockAudio(); stopSpeaking(); void announceVoice(hub.session, voiceOn);
     if (busy || listening) return;
     setListening(true); setPartial('');
     stopRef.current = startListening({
@@ -77,7 +77,13 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
     spokenRef.current = lastAgent.id;
     void speakAnswer(hub.session, lastAgent.id, lastAgent.text);
   }, [lastAgent?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const toggleVoice = () => { const on = !voiceOn; setVoiceOn(on); setVoiceReplies(on); if (on) unlockAudio(); };
+  const toggleVoice = () => { const on = !voiceOn; setVoiceOn(on); setVoiceReplies(on); void announceVoice(hub.session, on); if (on) unlockAudio(); };
+  // Tell the session this phone listens, so answers are voiced as soon as they are written.
+  useEffect(() => { if (mode === 'phone') void announceVoice(hub.session, voiceOn); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Speak with the action: a short fixed line the moment the bank's confirmation screen opens.
+  const modal = useUi((s) => s.modal);
+  const confirmId = modal?.kind === 'confirm' ? (modal as { confirmId: string }).confirmId : null;
+  useEffect(() => { if (confirmId && mode === 'phone') void playPhrase('confirm'); }, [confirmId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const statusText = listening ? 'Listening…' : (note && (status === 'paused' || status === 'error') ? note : STATUS_TEXT[status] || status);
 

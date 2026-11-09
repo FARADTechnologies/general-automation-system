@@ -19,6 +19,7 @@ const tryCommands = JSON.parse(readFileSync(resolve(root, 'domains/bank/try-comm
 const sttHints = JSON.parse(readFileSync(resolve(root, 'domains/bank/stt-hints.json'), 'utf8')) as string[];
 const stt = sttFromEnv(process.env, sttHints);
 const tts = ttsFromEnv(process.env);
+tts.warm(); // opens the provider connection and caches the fixed phrases before the first customer
 
 // AGENT_PROVIDER selects the model behind the same interface: anthropic (default), gemini, or an
 // OpenAI-compatible provider (mistral, groq, openai-compat).

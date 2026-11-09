@@ -4,6 +4,7 @@ import { runTurn, newSessionState, type SessionState, type TurnResult, type Conf
 import { BridgeSession } from './bridgeClient.ts';
 import { Hub } from './hub.ts';
 import { localTools, type ScreenMap } from './local-tools.ts';
+import { speakable, type TtsService } from './tts.ts';
 
 export interface RuntimeConfig {
   bridgeUrl: string;
@@ -14,6 +15,7 @@ export interface RuntimeConfig {
   confirmTimeoutMs: number;
   maxInputsPerMinute: number;
   screens?: ScreenMap;
+  tts?: TtsService;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -30,6 +32,9 @@ export class Session {
   private lastChooser: { options: { n: number; label: string }[] } | null = null;
   lastResult?: TurnResult;
   traces: TraceEvent[] = [];
+  /** A phone in this session has spoken replies on; answers are then voiced as soon as they exist. */
+  voiceOn = false;
+  ttsChars = 0;
 
   constructor(readonly id: string, private cfg: RuntimeConfig) {
     this.hub = new Hub(id);
@@ -59,9 +64,21 @@ export class Session {
 
   private setStatus(status: string, note?: string) { this.hub.patch({ agent: { status, note } }); }
 
-  private transcript(role: 'user' | 'agent', text: string) {
-    const t = [...this.hub.state.transcript, { id: `${role}-${Date.now()}`, role, text, at: Date.now() }].slice(-30);
+  private transcript(role: 'user' | 'agent', text: string): string {
+    const id = `${role}-${Date.now()}`;
+    const t = [...this.hub.state.transcript, { id, role, text, at: Date.now() }].slice(-30);
     this.hub.patch({ transcript: t });
+    return id;
+  }
+
+  /** Start voicing an answer before the phone asks for it, within the session's speech budget. */
+  private voice(id: string, text: string) {
+    const tts = this.cfg.tts;
+    if (!this.voiceOn || !tts?.enabled) return;
+    const spoken = speakable(text);
+    if (this.ttsChars + spoken.length > Number(process.env.TTS_SESSION_CHAR_CAP || 6000)) return;
+    this.ttsChars += spoken.length;
+    tts.start(`${this.id}:${id}`, spoken);
   }
 
   /** Run one user turn. Throws 'BUSY' or 'RATE_LIMIT' for the HTTP layer to map. */
@@ -90,7 +107,7 @@ export class Session {
           status: (s, note) => this.setStatus(s, note),
           ledger: (l) => this.showPlan(l),
           trace: (e) => this.onTrace(e),
-          message: (m) => { if (m) { this.transcript('agent', m); this.hub.emit('agent.message', { text: m }); } },
+          message: (m) => { if (m) { const id = this.transcript('agent', m); this.voice(id, m); this.hub.emit('agent.message', { text: m }); } },
           prepared: (p) => this.choreograph(p.prepared_id, p.capability),
           awaitConfirmation: (id, signal) => this.waitForCustomer(id, signal),
         },

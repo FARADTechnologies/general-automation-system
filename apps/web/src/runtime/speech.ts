@@ -45,6 +45,20 @@ export function stopSpeaking() {
   try { window.speechSynthesis?.cancel(); } catch { /* none */ }
 }
 
+/** Tell the session whether this phone wants spoken replies, so the server can voice each answer
+ *  the moment it is written instead of waiting for the phone to ask. Also loads the voice setting. */
+export async function announceVoice(session: string, on: boolean) {
+  void hasServerVoice();
+  try { await fetch(`/api/agent/sessions/${encodeURIComponent(session)}/voice`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ on }) }); } catch { /* offline */ }
+}
+
+/** A fixed line for a moment of the flow, for example when the bank screen opens. */
+export async function playPhrase(key: string) {
+  if (!voiceRepliesOn() || !el || !unlocked || !(await hasServerVoice())) return;
+  stopSpeaking();
+  try { el.src = `/api/agent/tts/phrase/${encodeURIComponent(key)}`; await el.play(); } catch { /* not available */ }
+}
+
 async function hasServerVoice(): Promise<boolean> {
   if (serverVoice !== null) return serverVoice;
   try { serverVoice = !!(await (await fetch('/api/agent/config')).json()).tts; } catch { serverVoice = false; }

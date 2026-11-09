@@ -28,12 +28,24 @@ export function strictSchema(schema: unknown): unknown {
   return out;
 }
 
-export interface ModelOptions { model: string; effort: 'low' | 'medium' | 'high'; thinking: 'between_tools' | 'adaptive'; maxTokens?: number; fallback?: boolean }
+export interface ModelOptions {
+  model: string; effort: 'low' | 'medium' | 'high'; thinking: 'between_tools' | 'adaptive'; maxTokens?: number; fallback?: boolean;
+  /** A gateway in front of the Messages API (for example an event's shared proxy). */
+  baseURL?: string;
+  /** Bearer token for gateways that expect Authorization instead of x-api-key. */
+  authToken?: string;
+}
 
 export class AnthropicModel implements ModelClient {
   private client: Anthropic;
   constructor(private opts: ModelOptions, apiKey?: string) {
-    this.client = new Anthropic({ apiKey, maxRetries: 2, timeout: 60_000 });
+    this.client = new Anthropic({
+      apiKey: opts.authToken ? null : apiKey,
+      authToken: opts.authToken || null,
+      baseURL: opts.baseURL || undefined,
+      maxRetries: 2,
+      timeout: 60_000,
+    });
   }
   get model() { return this.opts.model; }
 

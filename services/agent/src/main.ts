@@ -6,6 +6,7 @@ import { CORE_PROMPT, DEFAULT_CONFIG } from '@gas/agent-core';
 import { AnthropicModel } from './model.ts';
 import { GeminiModel } from './model-gemini.ts';
 import { openAICompatFromEnv } from './model-openai.ts';
+import { FallbackModel } from './model-fallback.ts';
 import { createAgentServer } from './server.ts';
 import { sttFromEnv } from './stt.ts';
 
@@ -20,7 +21,7 @@ const stt = sttFromEnv(process.env, sttHints);
 // AGENT_PROVIDER selects the model behind the same interface: anthropic (default), gemini, or an
 // OpenAI-compatible provider (mistral, groq, openai-compat).
 const provider = process.env.AGENT_PROVIDER || 'anthropic';
-const model = provider !== 'anthropic' && provider !== 'gemini' ? openAICompatFromEnv(provider, process.env) : provider === 'gemini'
+const primary = provider !== 'anthropic' && provider !== 'gemini' ? openAICompatFromEnv(provider, process.env) : provider === 'gemini'
   ? new GeminiModel({ model: process.env.GEMINI_MODEL || 'gemini-3.6-flash', fallbacks: (process.env.GEMINI_FALLBACKS || 'gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-2.5-flash').split(',').filter(Boolean), apiKey: process.env.GEMINI_API_KEY || '', thinkingLevel: (process.env.GEMINI_THINKING as 'low') || 'low' })
   : new AnthropicModel({
   model: process.env.AGENT_MODEL || 'claude-sonnet-5-5',
@@ -31,6 +32,11 @@ const model = provider !== 'anthropic' && provider !== 'gemini' ? openAICompatFr
   authToken: process.env.ANTHROPIC_AUTH_TOKEN,
   cacheTtl: process.env.AGENT_CACHE_TTL === '1h' ? '1h' : '5m',
 }, process.env.ANTHROPIC_API_KEY);
+
+// Optional second provider, used only while the first one is unreachable (MODEL_FALLBACK=gemini).
+const model = process.env.MODEL_FALLBACK === 'gemini' && provider !== 'gemini' && process.env.GEMINI_API_KEY
+  ? new FallbackModel(primary, new GeminiModel({ model: process.env.GEMINI_MODEL || 'gemini-3.6-flash', fallbacks: (process.env.GEMINI_FALLBACKS || 'gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-2.5-flash').split(',').filter(Boolean), apiKey: process.env.GEMINI_API_KEY, thinkingLevel: (process.env.GEMINI_THINKING as 'low') || 'low' }), { log: (m) => console.log(m) })
+  : primary;
 
 const { server } = createAgentServer({
   bridgeUrl: process.env.BRIDGE_URL || 'http://127.0.0.1:4200',

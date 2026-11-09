@@ -12,6 +12,9 @@ railway variables --service app \
   --set "ANTHROPIC_AUTH_TOKEN=$(get ANTHROPIC_AUTH_TOKEN)" \
   --set "AGENT_FALLBACK=$(get AGENT_FALLBACK)" \
   --set "AGENT_CACHE_TTL=$(get AGENT_CACHE_TTL)" \
+  --set "AGENT_MAX_STRICT_TOOLS=$(get AGENT_MAX_STRICT_TOOLS)" \
+  --set "AGENT_CACHE_MODE=$(get AGENT_CACHE_MODE)" \
+  --set "MODEL_FALLBACK=$(get MODEL_FALLBACK)" \
   --set "GEMINI_API_KEY=$(get GEMINI_API_KEY)" \
   --set "AGENT_PROVIDER=${AGENT_PROVIDER:-$(get AGENT_PROVIDER)}" \
   --set "GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.6-flash}" \

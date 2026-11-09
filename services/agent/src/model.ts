@@ -49,37 +49,59 @@ export class AnthropicModel implements ModelClient {
       timeout: 60_000,
     });
   }
+  private cacheMode: 'full' | 'system' | 'none' = (['full', 'system', 'none'].includes(process.env.AGENT_CACHE_MODE || '') ? process.env.AGENT_CACHE_MODE : 'full') as 'full' | 'system' | 'none';
+  private maxStrict = Number(process.env.AGENT_MAX_STRICT_TOOLS || 20);
   get model() { return this.opts.model; }
 
   async create(req: ModelRequest, signal?: AbortSignal): Promise<ModelResult> {
-    // The API accepts at most 20 strict tools. State-changing (prepare) tools get strict schemas
-    // first; reads are validated by the agent guard and the Bridge either way.
-    const MAX_STRICT = 20;
-    const strictNames = new Set(req.tools.filter((t) => t.kind === 'prepare').concat(req.tools.filter((t) => t.kind === 'local')).slice(0, MAX_STRICT).map((t) => t.name));
-    const tools = req.tools.map((t: ToolMeta, i: number) => ({
-      name: t.name,
-      description: t.description,
-      input_schema: (strictNames.has(t.name) ? strictSchema(t.inputSchema) : t.inputSchema) as Anthropic.Beta.Messages.BetaTool.InputSchema,
-      ...(strictNames.has(t.name) ? { strict: true } : {}),
-    }));
-    // Cache breakpoints: the system block (tools come before it in the prefix, so it caches them
-    // too) and automatic caching of the conversation. Two only, because the API allows four and
-    // a gateway may add its own.
-    const cache = this.opts.cacheTtl === '1h' ? { type: 'ephemeral' as const, ttl: '1h' as const } : { type: 'ephemeral' as const };
-    const t0 = Date.now();
-    const params: Record<string, unknown> = {
-      model: this.opts.model,
-      max_tokens: this.opts.maxTokens ?? 4096,
-      system: [{ type: 'text', text: req.system, cache_control: cache }],
-      tools,
-      messages: req.messages,
-      cache_control: cache,
-      thinking: { type: this.opts.thinking },
-      output_config: { effort: this.opts.effort },
+    // The API accepts at most 20 strict tools, and some accounts compile a smaller grammar. State-
+    // changing (prepare) tools get strict schemas first; reads are validated by the agent guard and
+    // the Bridge either way, and so are prepares when the strict budget shrinks.
+    const toolsFor = (maxStrict: number) => {
+      const strictNames = new Set(req.tools.filter((t) => t.kind === 'prepare').concat(req.tools.filter((t) => t.kind === 'local')).slice(0, maxStrict).map((t) => t.name));
+      return req.tools.map((t: ToolMeta) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: (strictNames.has(t.name) ? strictSchema(t.inputSchema) : t.inputSchema) as Anthropic.Beta.Messages.BetaTool.InputSchema,
+        ...(strictNames.has(t.name) ? { strict: true } : {}),
+      }));
     };
-    if (this.opts.fallback) { params.betas = ['server-side-fallback-2026-07-01']; params.fallbacks = 'default'; }
-    const message = (await this.client.beta.messages.create(params as never, { signal })) as Anthropic.Beta.Messages.BetaMessage;
+    // Cache breakpoints: the system block (tools come before it in the prefix, so it caches them
+    // too) and automatic caching of the conversation. The API allows four; a gateway may add its
+    // own. If a gateway rejects ours, the adapter adapts once and remembers: matching one-hour
+    // lifetimes, then the system block only, then none (the gateway's own breakpoints still cache).
+    const t0 = Date.now();
+    let message: Anthropic.Beta.Messages.BetaMessage | undefined;
+    for (let attempt = 0; attempt < 10 && !message; attempt++) {
+      const cache = this.opts.cacheTtl === '1h' ? { type: 'ephemeral' as const, ttl: '1h' as const } : { type: 'ephemeral' as const };
+      const mode = this.cacheMode;
+      const params: Record<string, unknown> = {
+        model: this.opts.model,
+        max_tokens: this.opts.maxTokens ?? 4096,
+        system: [{ type: 'text', text: req.system, ...(mode !== 'none' ? { cache_control: cache } : {}) }],
+        tools: toolsFor(this.maxStrict),
+        messages: req.messages,
+        ...(mode === 'full' ? { cache_control: cache } : {}),
+        thinking: { type: this.opts.thinking },
+        output_config: { effort: this.opts.effort },
+      };
+      if (this.opts.fallback) { params.betas = ['server-side-fallback-2026-07-01']; params.fallbacks = 'default'; }
+      try {
+        message = (await this.client.beta.messages.create(params as never, { signal })) as Anthropic.Beta.Messages.BetaMessage;
+      } catch (e) {
+        const msg = String((e as Error).message || '');
+        if ((e as { status?: number }).status !== 400) throw e;
+        console.warn(`model adapter: ${this.opts.model} rejected a request after ${Date.now() - t0} ms (strict tools ${this.maxStrict}, cache ${this.cacheMode}, thinking ${this.opts.thinking}): ${msg.slice(0, 120)}`);
+        if (/grammar is too large/i.test(msg) && this.maxStrict > 0) { this.maxStrict = this.maxStrict > 4 ? Math.floor(this.maxStrict / 2) : 0; continue; }
+        if (/between_tools/.test(msg) && this.opts.thinking === 'between_tools') { this.opts.thinking = 'adaptive'; continue; }
+        if (/matching TTLs/i.test(msg) && this.opts.cacheTtl !== '1h') { this.opts.cacheTtl = '1h'; continue; }
+        if (/blocks with cache_control/i.test(msg) && mode !== 'none') { this.cacheMode = mode === 'full' ? 'system' : 'none'; continue; }
+        throw e;
+      }
+    }
+    if (!message) throw new Error('model request was rejected after adapting cache settings');
     const latencyMs = Date.now() - t0;
+    if (process.env.MODEL_DEBUG === '1') console.warn(`model call ${this.opts.model} ${latencyMs} ms usage=${JSON.stringify({ in: message.usage.input_tokens, out: message.usage.output_tokens, cr: message.usage.cache_read_input_tokens, cw: message.usage.cache_creation_input_tokens })} stop=${message.stop_reason}`);
     return { message, latencyMs, costUsd: costOf(message.model || this.opts.model, message.usage as never) };
   }
 }

@@ -214,3 +214,20 @@
   turns: ["Which robotics stock should I put 300 dollars into?"]
   customer: approve
   expect: { effects: [] }
+# Regression scenarios for safe failures seen in the holdout 2 run (written by the core team,
+# deliberately different wording from the holdout).
+- id: dev-spelled-qapik
+  group: paraphrase
+  turns: ["Transfer twelve manat and thirty qapik to Sara Miller"]
+  customer: approve
+  expect: { effects: [{ type: transfer, to: Sara Miller, amount: 12.3, currency: AZN }] }
+- id: dev-chain-ask-after-confirm
+  group: chains
+  turns: ["Pay my Azerigaz bill and send 30 manat to Ali", "Ali Mammadov"]
+  customer: approve
+  expect: { effects: [{ type: bill_paid, biller: Azerigaz }, { type: transfer, to: Ali Mammadov, amount: 30, currency: AZN }] }
+- id: dev-cancel-paraphrase
+  group: paraphrase
+  turns: ["I never use Spotify, drop it please"]
+  customer: approve
+  expect: { effects: [{ type: subscription_cancelled, merchant: Spotify }] }

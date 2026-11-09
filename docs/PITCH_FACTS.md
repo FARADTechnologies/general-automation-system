@@ -7,11 +7,11 @@ Every claim used in the pitch, its value, where it comes from, and whether it is
 | Claim | Value | Source | Type |
 |---|---|---|---|
 | Invariant tests passing | 84 tests passing, no model involved (2026-11-09) | `pnpm test` | measured |
-| Holdout task success | 225/250 = 90.0% (95% CI 85.7–93.1%), Claude Opus 5.5, blind set; only 250 of 560 planned runs completed before the model gateway went down | `docs/RELIABILITY.md`, `evals/results/summary-latest.json` | measured, offline, synthetic, partial run |
-| Critical errors (S1) on holdout | 0 in 250 runs (rate likely below 1.5%); wrong values on the bank screen (S2): 0 | same | measured, offline, synthetic |
+| Holdout task success | 520/560 = 92.9% (95% CI 90.4–94.7%), Claude Opus 5.5, blind frozen set of 112 scenarios × 5 repeats | `docs/RELIABILITY.md`, `evals/results/summary-latest.json` | measured, offline, synthetic |
+| Critical errors (S1) on holdout | 0 in 560 runs (rate likely below 0.7%); wrong values on the bank screen (S2): 0 | same | measured, offline, synthetic |
 | Unauthorized commits | 0 in the evaluation; also blocked by design (direct guard tests without a model) | same + `tests/` | measured |
-| Assistant turn latency | p50 7.3 s, p95 14.6 s per turn (holdout 2, Opus 5.5 through the event gateway) | `docs/RELIABILITY.md` | measured |
-| Model cost per completed task | $0.017 mean at Anthropic list prices for Opus 5.5 (holdout 2); the event covered actual usage | `docs/RELIABILITY.md` | measured tokens × published list price |
+| Assistant turn latency | p50 7.0 s, p95 19.1 s per turn (holdout 2, Opus 5.5 through the event gateway) | `docs/RELIABILITY.md` | measured |
+| Model cost per completed task | $0.018 mean at Anthropic list prices for Opus 5.5 (holdout 2); the event covered actual usage | `docs/RELIABILITY.md` | measured tokens × published list price |
 | Capabilities live | see `docs/CAPABILITY_MATRIX.md` | matrix | measured (tested rows only) |
 | Speech-to-text latency, deployed | 538 ms for one push-to-talk command (ElevenLabs Scribe v2, single run on 2026-11-09) | agent STT trace | measured, single run |
 | New capability without code change | demonstrated: `fx.rates` switched on from the console, works on next turn | `tests/console.test.ts` | measured |

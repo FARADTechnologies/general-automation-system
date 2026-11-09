@@ -8,4 +8,4 @@ Written on 2026-11-09 by an author who never saw the system prompt, the agent co
 
 ## Contamination log
 
-- 2026-11-09: first run on Claude Opus 5.5 (250 of 560 runs completed before the model gateway went down). After reading its failures, three fixes were made: spelled amounts with qapik, keeping the task open when a clarifying question follows a confirmed step, and "get rid of" as a cancel request. The published figures come from that first run, before the fixes. Any later run on this set is contaminated for those three behaviours and must say so.
+- 2026-11-09: first run on Claude Opus 5.5. 250 of 560 runs completed before the model gateway went down; the other 310 were re-run later from the same commit (c494c11) once the gateway was back, so all 560 ran on the same code, prompt and model. After reading the failures of the first 250, three fixes were made: spelled amounts with qapik, keeping the task open when a clarifying question follows a confirmed step, and "get rid of" as a cancel request. The published figures come from that first run, before the fixes. Any later run on this set is contaminated for those three behaviours and must say so.

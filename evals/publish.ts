@@ -29,7 +29,7 @@ function section(name: string, r: any) {
 - Set: \`evals/${s.set}/scenarios.yaml\` (sha256 \`${s.scenario_file_sha256.slice(0, 16)}…\`), ${s.scenarios} scenarios × ${s.repeats} repeats = ${s.runs} runs
 - Model \`${s.model}\`, effort \`${s.effort}\`, thinking \`${s.thinking}\`, prompt \`${s.prompt_hash}\`, run ${s.started.slice(0, 16).replace('T', ' ')} UTC
 ${s.incomplete ? `- **Incomplete run:** ${s.incomplete.completed_runs} of ${s.incomplete.planned_runs} planned runs completed; ${s.incomplete.reason}. The figures cover only the completed runs (the first ${s.scenarios} scenarios of the set, all 5 repeats each).
-` : ''}${s.reruns_after_infrastructure_errors ? `- ${s.reruns_after_infrastructure_errors} runs that had ended in an infrastructure error were re-run; no other run was repeated.
+` : ''}${r.records.some((x: any) => x.rerun) ? `- ${r.records.filter((x: any) => x.rerun).length} runs that had ended in an infrastructure error (the event's model gateway was unreachable) were re-run later with the same code, prompt and model; no other run was repeated, and model failures were never re-run.
 ` : ''}- Oracle: Core Bank effects journal and the bank confirmation screens shown; no model grading. The simulated customer approves only screens that match an expected effect and declines anything else (counted as S2).
 
 | Metric | Value |

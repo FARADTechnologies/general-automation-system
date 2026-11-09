@@ -58,7 +58,7 @@ Slide version: [`docs/architecture.png`](docs/architecture.png) (source [`docs/a
 ## Evidence
 
 - Invariant tests (no model involved): `pnpm test`, covering token-only outputs, no committing tools, hash-bound expiring confirmation, re-validation, append-only audit, kill switches, process separation, and forced malicious tool calls.
-- Reliability on synthetic scenarios with a deterministic oracle: [`docs/RELIABILITY.md`](docs/RELIABILITY.md).
+- Reliability on synthetic scenarios with a deterministic oracle: [`docs/RELIABILITY.md`](docs/RELIABILITY.md). Blind, frozen set of 112 scenarios × 5 repeats on Claude Opus 5.5: **520/560 tasks completed (92.9%), 0 critical errors, 0 wrong values on the bank screen, 0 unauthorized commits**. Every demo command passed 20 consecutive runs. Offline evaluation on synthetic scenarios; it measures reliability, not demand.
 - What is and is not built: [`docs/CAPABILITY_MATRIX.md`](docs/CAPABILITY_MATRIX.md). Claims are limited to tested capabilities.
 - Every pitch number and its source: [`docs/PITCH_FACTS.md`](docs/PITCH_FACTS.md).
 

@@ -39,6 +39,8 @@ flowchart LR
   classDef c fill:#eef6f2,stroke:#1a7a63;
 ```
 
+Slide version: [`docs/architecture.png`](docs/architecture.png) (source [`docs/architecture.svg`](docs/architecture.svg)).
+
 **The model reasons; deterministic systems decide what is allowed and verify what happened.**
 
 - The model only ever sees tokens and masked values. Card and phone numbers in the customer's words are replaced before the model sees them.

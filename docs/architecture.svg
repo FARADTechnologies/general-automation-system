@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#334155"/>
+    </marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="#ffffff"/>
+  <text x="60" y="70" font-size="34" font-weight="700" fill="#0f172a">The model reasons. Deterministic systems decide and verify.</text>
+  <text x="60" y="108" font-size="20" fill="#475569">Action layer for a bank's existing app: no bank source code, no money moved without the customer's confirmation on the bank's own screen.</text>
+
+  <!-- zones -->
+  <rect x="40" y="150" width="380" height="690" rx="18" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="64" y="188" font-size="18" font-weight="700" fill="#334155">CUSTOMER DEVICES</text>
+  <text x="64" y="212" font-size="15" fill="#64748b">thin clients: no AI, no keys</text>
+
+  <rect x="470" y="150" width="440" height="690" rx="18" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="494" y="188" font-size="18" font-weight="700" fill="#334155">OUR SERVICE</text>
+  <text x="494" y="212" font-size="15" fill="#64748b">agent runtime, model behind a thin interface</text>
+
+  <rect x="960" y="150" width="600" height="690" rx="18" fill="#ecfdf5" stroke="#5eead4"/>
+  <text x="984" y="188" font-size="18" font-weight="700" fill="#0f766e">INSIDE THE BANK</text>
+  <text x="984" y="212" font-size="15" fill="#0f766e">installed and controlled by the bank</text>
+
+  <!-- customer boxes -->
+  <rect x="70" y="250" width="320" height="200" rx="14" fill="#ffffff" stroke="#334155" stroke-width="2"/>
+  <text x="94" y="290" font-size="22" font-weight="700" fill="#0f172a">Mobile bank app</text>
+  <text x="94" y="322" font-size="16" fill="#334155">voice or text: one sentence</text>
+  <text x="94" y="348" font-size="16" fill="#334155">screens fill themselves live</text>
+  <rect x="94" y="372" width="272" height="56" rx="10" fill="#0f766e"/>
+  <text x="230" y="397" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">Bank confirmation screen</text>
+  <text x="230" y="417" font-size="13" fill="#ccfbf1" text-anchor="middle">rendered from the Bridge's object</text>
+
+  <rect x="70" y="490" width="320" height="120" rx="14" fill="#ffffff" stroke="#334155" stroke-width="2"/>
+  <text x="94" y="530" font-size="22" font-weight="700" fill="#0f172a">Projector view</text>
+  <text x="94" y="562" font-size="16" fill="#334155">same session, mirrored state</text>
+  <text x="94" y="588" font-size="16" fill="#334155">plan, guards, what each side sees</text>
+
+  <!-- agent -->
+  <rect x="500" y="250" width="380" height="360" rx="14" fill="#ffffff" stroke="#334155" stroke-width="2"/>
+  <text x="524" y="290" font-size="22" font-weight="700" fill="#0f172a">Agent service</text>
+  <g font-size="16" fill="#334155">
+    <text x="524" y="328">1  Ingress tokenizer: card and phone</text>
+    <text x="548" y="350">numbers become tokens before the model</text>
+    <text x="524" y="384">2  Model loop with a task ledger</text>
+    <text x="524" y="418">3  Guards before every tool call:</text>
+    <text x="548" y="440">intent, provenance of payee and</text>
+    <text x="548" y="462">amount, schema, risk, step limits</text>
+    <text x="524" y="496">4  Answer lint: no unverified numbers,</text>
+    <text x="548" y="518">"done" only after the bank verifies</text>
+    <text x="524" y="552">5  Session hub: phone and projector</text>
+    <text x="548" y="574">get the same ordered UI events</text>
+  </g>
+
+  <rect x="500" y="680" width="380" height="120" rx="14" fill="#fff7ed" stroke="#fb923c" stroke-width="2"/>
+  <text x="524" y="718" font-size="22" font-weight="700" fill="#9a3412">Language model</text>
+  <text x="524" y="748" font-size="16" fill="#9a3412">sees tokens and masked values only</text>
+  <text x="524" y="772" font-size="16" fill="#9a3412">cloud by default; a bank can plug its own</text>
+
+  <!-- bridge -->
+  <rect x="990" y="250" width="540" height="360" rx="14" fill="#ffffff" stroke="#0f766e" stroke-width="2.5"/>
+  <text x="1014" y="290" font-size="22" font-weight="700" fill="#0f172a">Bank Bridge</text>
+  <g font-size="16" fill="#334155">
+    <text x="1014" y="328">Capability manifests: semantic tools over existing internal APIs</text>
+    <text x="1014" y="360">Token vault: real card and phone numbers never leave the bank</text>
+    <text x="1014" y="392">Policy: ownership, limits, funds, card state, new-payee risk</text>
+    <text x="1014" y="424">Prepare only. Commit needs a one-time, 120-second confirmation</text>
+    <text x="1014" y="446">bound to the exact payload hash, sent from the bank screen</text>
+    <text x="1014" y="478">Postcondition check in the core bank before "done"</text>
+    <text x="1014" y="510">Append-only audit log with a trace ID for every step</text>
+    <text x="1014" y="542">Kill switch per capability; new capability without a deploy</text>
+  </g>
+
+  <rect x="990" y="680" width="250" height="120" rx="14" fill="#ffffff" stroke="#334155" stroke-width="2"/>
+  <text x="1014" y="718" font-size="22" font-weight="700" fill="#0f172a">Core banking</text>
+  <text x="1014" y="748" font-size="16" fill="#334155">internal endpoints and</text>
+  <text x="1014" y="772" font-size="16" fill="#334155">field names, unchanged</text>
+
+  <rect x="1280" y="680" width="250" height="120" rx="14" fill="#ffffff" stroke="#334155" stroke-width="2"/>
+  <text x="1304" y="718" font-size="22" font-weight="700" fill="#0f172a">Bank console</text>
+  <text x="1304" y="748" font-size="16" fill="#334155">sessions, audit, switches,</text>
+  <text x="1304" y="772" font-size="16" fill="#334155">limits, human handoff</text>
+
+  <!-- arrows -->
+  <line x1="390" y1="300" x2="498" y2="300" stroke="#334155" stroke-width="2.5" marker-start="url(#a)" marker-end="url(#a)"/>
+  <text x="444" y="290" font-size="13" fill="#475569" text-anchor="middle">WebSocket</text>
+  <line x1="390" y1="550" x2="498" y2="550" stroke="#334155" stroke-width="2.5" marker-end="url(#a)" marker-start="url(#a)"/>
+  <text x="444" y="540" font-size="13" fill="#475569" text-anchor="middle">mirror</text>
+
+  <line x1="880" y1="330" x2="988" y2="330" stroke="#334155" stroke-width="2.5" marker-end="url(#a)"/>
+  <text x="934" y="318" font-size="14" font-weight="700" fill="#334155" text-anchor="middle">MCP</text>
+  <text x="934" y="352" font-size="13" fill="#475569" text-anchor="middle">read and</text>
+  <text x="934" y="368" font-size="13" fill="#475569" text-anchor="middle">prepare only</text>
+
+  <line x1="690" y1="610" x2="690" y2="678" stroke="#334155" stroke-width="2.5" marker-start="url(#a)" marker-end="url(#a)"/>
+
+  <path d="M94 400 L55 400 L55 655 L940 655 L940 590 L988 590" fill="none" stroke="#0f766e" stroke-width="3" stroke-dasharray="9 6" marker-end="url(#g)"/>
+  <text x="230" y="690" font-size="16" font-weight="700" fill="#0f766e" text-anchor="middle">Customer approval goes</text>
+  <text x="230" y="712" font-size="16" font-weight="700" fill="#0f766e" text-anchor="middle">straight to the Bridge,</text>
+  <text x="230" y="734" font-size="16" font-weight="700" fill="#0f766e" text-anchor="middle">never through the agent</text>
+
+  <line x1="1115" y1="610" x2="1115" y2="678" stroke="#334155" stroke-width="2.5" marker-end="url(#a)"/>
+  <text x="1125" y="650" font-size="13" fill="#475569">service credential</text>
+  <line x1="1405" y1="678" x2="1405" y2="612" stroke="#334155" stroke-width="2.5" marker-end="url(#a)"/>
+
+  <text x="60" y="878" font-size="14" fill="#64748b">Three separate processes with separate credentials; the agent has no database access and no core-bank address (enforced by an automated test). All bank data in the demo is fictional.</text>
+</svg>

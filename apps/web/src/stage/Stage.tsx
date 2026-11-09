@@ -88,7 +88,10 @@ export default function Stage() {
   if (backup) {
     return (
       <div className="stg stg-backup">
-        <video src="/backup.mp4" autoPlay controls playsInline />
+        <video autoPlay controls playsInline>
+          <source src="/backup.webm" type="video/webm" />
+          <source src="/backup.mp4" type="video/mp4" />
+        </video>
         <p>Backup recording. Press B to return to the live view.</p>
       </div>
     );

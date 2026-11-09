@@ -44,21 +44,31 @@ export class Session {
     this.bridge = new BridgeSession(cfg.bridgeUrl, cfg.agentKey, id);
   }
 
-  private screens = new Map<string, string>();
+  private screens = new Map<string, { route: string; focus?: string }>();
 
   private toolPort(): ToolPort {
     return {
       listTools: async () => {
         const tools = await this.bridge.listTools();
-        for (const t of tools) if (t.kind === 'read' && t.uiRoute) this.screens.set(t.name, t.uiRoute);
+        for (const t of tools) if (t.kind === 'read' && t.uiRoute) this.screens.set(t.name, { route: t.uiRoute, focus: t.uiFocus });
         return tools.map((t): ToolMeta => ({ ...t, kind: t.kind }));
       },
       call: async (name, input, traceId) => {
         const r = await this.bridge.call(name, input, traceId);
         // Show, don't just tell: a successful read opens the app screen that shows the same data
         // (from the manifest, deterministic). A prepare step later moves on to its own screen.
-        const route = this.screens.get(name);
-        if (r.ok && route && ROUTE_RE.test(route) && this.hub.state.route !== route && !this.hub.state.modal) this.hub.patch({ route, highlight: null });
+        const screen = this.screens.get(name);
+        if (r.ok && screen && ROUTE_RE.test(screen.route) && !this.hub.state.modal) {
+          if (this.hub.state.route !== screen.route) this.hub.patch({ route: screen.route, highlight: null });
+          // point at the panel that shows this data, so every screen scrolls to it, then let go
+          if (screen.focus) {
+            const focus = screen.focus;
+            // the panel shows exactly what was read (same period, same figures as the answer)
+            this.hub.patch({ agentView: { ...(this.hub.state.agentView || {}), [focus]: { data: r.data, at: Date.now() } } });
+            setTimeout(() => { if (!this.hub.state.modal) this.hub.patch({ highlight: focus }); }, 350);
+            setTimeout(() => { if (this.hub.state.highlight === focus) this.hub.patch({ highlight: null }); }, 4500);
+          }
+        }
         return r;
       },
       tokenize: (kind, value, traceId) => this.bridge.tokenize(kind, value, traceId),
@@ -248,6 +258,12 @@ export class Session {
       case 'navigate': {
         const route = String(intent.route || '');
         if (ROUTE_RE.test(route)) this.hub.patch({ route, highlight: null });
+        break;
+      }
+      case 'agent-view.clear': {
+        // the customer picked their own period on that panel
+        const key = String(intent.key || '').slice(0, 60);
+        if (key && this.hub.state.agentView?.[key]) this.hub.patch({ agentView: { ...this.hub.state.agentView, [key]: null } });
         break;
       }
       case 'field.set': {

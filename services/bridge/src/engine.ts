@@ -124,6 +124,7 @@ export class Engine {
           intent_terms: c.intent_terms || [], derived: !!c.derived,
           // the app screen that shows this capability's data, so the agent can show rather than tell
           ui_route: c.ui?.route,
+          ui_focus: c.ui?.focus,
           // which output fields carry tokens, and with what provenance (for the agent's evidence set)
           token_provenance: Object.fromEntries(Object.entries(c.response?.fields || {}).flatMap(([k, f]) => (typeof f === 'object' && f.token ? [[k, f.token.provenance]] : []))),
         },

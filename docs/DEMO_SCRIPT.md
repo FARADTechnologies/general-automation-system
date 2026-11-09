@@ -1,6 +1,6 @@
 # Demo script (live segment, 60–75 s)
 
-Every command below is in `evals/demo/scenarios.yaml` and must pass 20 consecutive runs before freeze. Last run: 2026-11-09, Claude Opus 5.5 through the event gateway, **80/80 passed** (each of the 4 commands 20/20), no S1 or S2. Whole-turn time including both bank confirmations: p50 13.3 s, p95 28.7 s, with four sessions running at once.
+Every command below is in `evals/demo/scenarios.yaml` and must pass 20 consecutive runs before freeze. Last runs on 2026-11-09 through the event gateway: Claude Haiku 5.5 at low effort (the deployed configuration) **80/80 passed**, whole-turn time including the bank confirmations p50 8.3 s, p95 10.9 s; Claude Opus 5.5 at medium effort also 80/80 (p50 13.3 s, p95 28.7 s). No S1 or S2 in either, four sessions running at once.
 
 ```bash
 npx tsx evals/runner.ts --set demo --repeats 20 --concurrency 4
@@ -20,7 +20,7 @@ Host: `https://app-production-7364.up.railway.app` (backup: the laptop's local s
 
 | Time | Presenter says | On the phone | What the jury sees on the stage |
 |---|---|---|---|
-| 0–10 s | "I just lost my card. Watch." | Hold the mic (or type): **"I lost my debit card. Block it and send a replacement to the Quba branch."** | Quote appears; plan with two steps |
+| 0–10 s | "I just lost my card. Watch." | Tap the mic, speak, tap again (or type): **"I lost my debit card. Block it and send a replacement to the Quba branch."** | Quote appears; plan with two steps |
 | 10–25 s | "It plans, finds the card, prepares the block. Nothing happens without me." | Bank screen: *Block card · Caspia Debit •••• 4417* → tap **Confirm** | Guard decisions (allowed · R2), "Agent sees" token vs "Bank sees" `crd_pan …4417` |
 | 25–45 s | "Second step: it picks the Quba branch and prepares the replacement." | Bank screen: *Order a replacement card · Quba* → tap **Confirm** | Plan: both steps done; answer says verified |
 | 45–60 s | "The bank sees every step, can switch any capability off, and gets a structured handoff if needed." | — | Switch to the console tab: audit log rows of this session, kill switches |

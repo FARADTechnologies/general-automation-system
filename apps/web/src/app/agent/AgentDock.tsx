@@ -1,4 +1,4 @@
-// Agent dock: push-to-talk and text input, agent status, live plan, last exchange.
+// Agent dock: tap-to-talk and text input, agent status, live plan, last exchange.
 import React, { useEffect, useRef, useState } from 'react';
 import { Mic, SendHorizontal, Square, Sparkles, Check, X, Loader2, Circle, Volume2, VolumeX } from 'lucide-react';
 import { hub, useUi, useConnected, useHubEvent } from '../../runtime/hub.ts';
@@ -84,11 +84,23 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
   const confirmId = modal?.kind === 'confirm' ? (modal as { confirmId: string }).confirmId : null;
   useEffect(() => { if (mode !== 'phone') return; if (confirmId) queuePhrase('confirm'); else dropPhrase('confirm'); }, [confirmId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const statusText = listening ? 'Listening…' : (note && (status === 'paused' || status === 'error') ? note : STATUS_TEXT[status] || status);
+  // While the assistant works, the screen stays clear: only this one status line shows, with the
+  // step it is on. The full exchange appears when the turn is over.
+  const step = plan?.steps.find((s) => s.status === 'running' || s.status === 'waiting_confirmation');
+  const [recSecs, setRecSecs] = useState(0);
+  useEffect(() => {
+    if (!listening) { setRecSecs(0); return; }
+    const t = setInterval(() => setRecSecs((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, [listening]);
+  const statusText = listening
+    ? `Recording 0:${String(recSecs).padStart(2, '0')} · tap the microphone again to send`
+    : busy && step ? step.title
+    : (note && (status === 'paused' || status === 'error') ? note : STATUS_TEXT[status] || status);
 
   return (
     <div className={'agent-dock' + (withTabs ? ' with-tabs' : '')} data-mode={mode}>
-      {(open || busy) && (lastUser || plan) && (
+      {open && !busy && showAgentReply && (
         <div className="agent-panel">
           <button className="agent-close" aria-label="Hide" onClick={() => setOpen(false)}><X size={16} /></button>
           {lastUser && <p className="agent-said"><span>You</span>{lastUser.text}</p>}
@@ -132,10 +144,10 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
         ) : text.trim() ? (
           <button type="submit" className="agent-btn" data-nav-id="agent-send" aria-label="Send"><SendHorizontal size={18} /></button>
         ) : (
-          <button type="button" className={'agent-btn mic' + (listening ? ' on' : '')} data-nav-id="agent-mic" aria-label="Hold to talk"
-            onPointerDown={micDown} onPointerUp={micUp} onPointerLeave={() => listening && micUp()} disabled={mode !== 'phone' || !speechSupported()}
-            title={speechSupported() ? 'Hold to talk' : 'Voice is not supported in this browser'}>
-            <Mic size={18} />
+          <button type="button" className={'agent-btn mic' + (listening ? ' on' : '')} data-nav-id="agent-mic" aria-label={listening ? 'Send voice request' : 'Start voice request'}
+            aria-pressed={listening} onClick={() => (listening ? micUp() : micDown())} disabled={mode !== 'phone' || !speechSupported()}
+            title={speechSupported() ? (listening ? 'Tap to send' : 'Tap to talk') : 'Voice is not supported in this browser'}>
+            {listening ? <SendHorizontal size={18} /> : <Mic size={18} />}
           </button>
         )}
       </form>

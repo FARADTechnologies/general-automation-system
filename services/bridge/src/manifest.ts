@@ -34,7 +34,7 @@ export interface Capability {
   commit?: RequestSpec; cancel?: RequestSpec;
   postcondition?: RequestSpec & { expect: Record<string, unknown> };
   confirm?: { level: 'none' | 'tap' | 'biometric'; title: string; display: { key: string; label: string; value: string }[] };
-  ui?: { route: string; form?: string; fields?: { target: string; display: string }[]; submit?: string; say?: { start?: string; done?: string } };
+  ui?: { route: string; form?: string; fields?: { target: string; display: string }[]; submit?: string; say?: { start?: string; done?: string }; focus?: string };
   errors?: Record<string, { code: string; message: string }>;
   source_file?: string;
 }

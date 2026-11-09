@@ -29,6 +29,7 @@ response:
     transactions: cnt
 ui:
   route: /app/analytics
+  focus: analytics-by-category
 ---
 id: analytics.compare_periods
 title: Compare spending between two periods
@@ -64,6 +65,7 @@ response:
     difference: { from: diff_minor, transform: major }
 ui:
   route: /app/analytics
+  focus: analytics-compare
 ---
 id: analytics.top_expenses
 title: Largest expenses
@@ -93,6 +95,7 @@ response:
     merchant: { from: mrch_nm, untrusted: true }
 ui:
   route: /app/analytics
+  focus: analytics-top
 ---
 id: analytics.income_sources
 title: Income sources
@@ -122,6 +125,7 @@ response:
     source: { from: key, untrusted: true }
 ui:
   route: /app/analytics
+  focus: analytics-income
 ---
 id: subscriptions.list
 title: Subscriptions

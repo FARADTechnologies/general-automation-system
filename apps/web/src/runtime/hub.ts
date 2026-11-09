@@ -12,6 +12,7 @@ export interface UiState {
   plan: null | { taskId: string; goal: string; steps: { id: string; title: string; status: string }[] };
   transcript: { id: string; role: 'user' | 'agent'; text: string; at: number }[];
   bankVersion: number;
+  agentView?: Record<string, { data: any; at: number } | null>;
 }
 export interface HubEvent { type: string; seq: number; at: number; payload: any }
 

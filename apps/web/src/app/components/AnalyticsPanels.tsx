@@ -1,6 +1,7 @@
 // Panels that extend /app/analytics: compare two periods, top expenses, income sources.
 // Every number comes from the analytics capabilities; the UI only lays them out.
 import { useBank } from '../../runtime/bank.ts';
+import { hub, useUi } from '../../runtime/hub.ts';
 import React from 'react';
 import '../../styles/analytics.css';
 import { useNavigate } from 'react-router-dom';
@@ -100,9 +101,29 @@ function CategoryDonut({ items, total, active, pick }: { items: CategoryRow[]; t
   );
 }
 
+// What the assistant read from the bank for this panel (same period and figures as its answer).
+const money2 = (v: unknown) => Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const dayLabel = (d: unknown) => { const t = new Date(String(d) + 'T00:00:00Z'); return Number.isNaN(t.getTime()) ? String(d || '') : t.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }); };
+function fromAgent(v: { data: any } | null | undefined): { items: CategoryRow[]; total: string; label: string } | null {
+  const d = v?.data;
+  if (!d || !Array.isArray(d.items)) return null;
+  const ccy = d.currency || 'AZN';
+  return {
+    items: d.items.map((x: { category: string; amount: number }) => ({ category: String(x.category).replace(/^./, (c) => c.toUpperCase()), amount: `${money2(x.amount)} ${ccy}` })),
+    total: `${money2(d.total_spent)} ${ccy}`,
+    label: d.period_from && d.period_to ? `${dayLabel(d.period_from)} – ${dayLabel(d.period_to)}` : '',
+  };
+}
+
 export function SpendByCategory({ period }: { period: Period }) {
   // analytics.by_category -> { total, items: [{ category, amount, pct }] }, calculated and sorted by the bank.
-  const r = useBank('analytics.by_category', { period });
+  const own = useBank('analytics.by_category', { period });
+  // When the assistant has just read spending for a period, this panel shows that same result, so
+  // the chart, the spoken answer and the text never disagree. Picking a period here goes back to it.
+  const agent = fromAgent(useUi((st) => st.agentView?.['analytics-by-category']));
+  const first = React.useRef(true);
+  React.useEffect(() => { if (first.current) { first.current = false; return; } hub.intent({ type: 'agent-view.clear', key: 'analytics-by-category' }); }, [period]);
+  const r = agent ? { status: 'ready' as const, data: { total: agent.total, items: agent.items }, reload: () => undefined } : own;
   const [picked, setPicked] = React.useState<string | null>(null);
   const items: CategoryRow[] = r.status === 'ready' ? r.data.items : [];
   const active = items.some((x) => x.category === picked) ? picked : null; // a pick from another period does not carry over
@@ -112,12 +133,18 @@ export function SpendByCategory({ period }: { period: Period }) {
   return (
     <section className="block an-panel" aria-labelledby="an-cat" data-nav-id="analytics-by-category">
       <h2 id="an-cat">Spending by category</h2>
+      {agent && (
+        <p className="an-agent-period small muted">
+          {agent.label ? `${agent.label}, as in the assistant's answer` : "As in the assistant's answer"} ·{' '}
+          <button type="button" className="link" onClick={() => hub.intent({ type: 'agent-view.clear', key: 'analytics-by-category' })}>show {period.replace('d', ' days')}</button>
+        </p>
+      )}
       {r.status === 'loading' && <Loading />}
       {r.status === 'error' && <ErrorState onRetry={r.reload} />}
       {r.status === 'ready' && items.length === 0 && <Empty title="No spending in this period" />}
       {r.status === 'ready' && items.length > 0 && (
         <>
-          <CategoryDonut key={period} items={items} total={r.data.total} active={active} pick={pick} />
+          <CategoryDonut key={agent ? 'agent' + agent.label : period} items={items} total={r.data.total} active={active} pick={pick} />
           <ul className={'an-cats' + (active ? ' has-active' : '')}>
             {items.map((x, i) => (
               <li

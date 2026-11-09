@@ -64,7 +64,12 @@ export function HighlightLayer({ root }: { root: React.RefObject<HTMLElement> })
       const el = r.querySelector(`[data-nav-id="${CSS.escape(id)}"]`) as HTMLElement | null;
       if (!el) return;
       el.classList.add('agent-hl');
-      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      // Centre it in the part of the screen the customer can see: above the assistant dock at the
+      // bottom and below the header, so the element the assistant is working on is never hidden.
+      const dock = r.querySelector('.agent-dock') as HTMLElement | null;
+      el.style.scrollMarginBottom = `${Math.round(dock?.getBoundingClientRect().height ?? 0) + 12}px`;
+      el.style.scrollMarginTop = '64px';
+      el.scrollIntoView({ block: el.offsetHeight > 360 ? 'start' : 'center', behavior: 'smooth' });
     }, 60);
     return () => clearTimeout(t);
   }, [id, root]);

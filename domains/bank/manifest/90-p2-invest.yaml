@@ -102,6 +102,7 @@ response:
     change_1d_pct: chg_1d
 ui:
   route: /app/invest
+  focus: invest-portfolio-value
 ---
 id: invest.order.prepare
 title: Prepare a buy order (simulated market)

@@ -16,7 +16,7 @@ Live deployment: **https://app-production-7364.up.railway.app**. Pick any sessio
 
 Printable QR card for judges: [`docs/judge-qr.png`](docs/judge-qr.png) (opens `/app`, which gives every phone its own session).
 
-Open the phone link on a phone and the projector link on a laptop with the same session name: what the assistant does on the phone appears on both. Hold the microphone button to speak, or type.
+Open the phone link on a phone and the projector link on a laptop with the same session name: what the assistant does on the phone appears on both. Tap the microphone, speak, and tap it again to send, or type. The assistant talks you through each step.
 
 Proven commands: *"Send 25 manat to Rashad"*, *"I lost my debit card. Block it and send a replacement to the Quba branch."*, *"Pay all my unpaid bills and send 20 manat to Leyla"*, *"Summarize my transactions from this week"* (one memo contains a prompt injection; nothing happens).
 

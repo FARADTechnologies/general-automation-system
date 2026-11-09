@@ -24,6 +24,40 @@ export class BankError extends Error {
 const id = (p: string) => p + randomBytes(5).toString('hex').toUpperCase();
 const OWN_BIN = '4169';
 
+const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+/** First payment of a standing order, from what the customer said: a weekday (strt_wkdy), a day
+ *  of the month (strt_dom, optionally with a month strt_mon), or an explicit date (strt_dt).
+ *  The bank works out the date; the earliest is tomorrow (Baku time), the latest a year ahead. */
+export function firstPaymentDate(body: Record<string, unknown>, now = Date.now()): string {
+  const day = (t: number) => new Date(t).toISOString().slice(0, 10);
+  const today = Date.parse(day(now + 4 * 3600_000) + 'T00:00:00Z'); // Baku is UTC+4
+  const tomorrow = today + 86400_000;
+  const latest = today + 366 * 86400_000;
+  const search = (ok: (d: Date) => boolean, what: string) => {
+    for (let t = tomorrow; t <= latest; t += 86400_000) if (ok(new Date(t))) return day(t);
+    throw new BankError(422, 'STRT_INV', `no ${what} within the next year`);
+  };
+  if (body.strt_dt) {
+    const s = String(body.strt_dt);
+    const t = Date.parse(s + 'T00:00:00Z');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(t) || t < tomorrow || t > latest) throw new BankError(422, 'STRT_INV', 'the first payment must be between tomorrow and one year ahead');
+    return s;
+  }
+  if (body.strt_dom !== undefined && body.strt_dom !== '') {
+    const dom = Number(body.strt_dom);
+    const mon = body.strt_mon !== undefined && body.strt_mon !== '' ? Number(body.strt_mon) : null;
+    if (!Number.isInteger(dom) || dom < 1 || dom > 28) throw new BankError(422, 'STRT_INV', 'day of the month must be 1 to 28');
+    if (mon !== null && (!Number.isInteger(mon) || mon < 1 || mon > 12)) throw new BankError(422, 'STRT_INV', 'month must be 1 to 12');
+    return search((d) => d.getUTCDate() === dom && (mon === null || d.getUTCMonth() + 1 === mon), 'such date');
+  }
+  if (body.strt_wkdy) {
+    const i = WEEKDAYS.indexOf(String(body.strt_wkdy).slice(0, 3).toUpperCase());
+    if (i < 0) throw new BankError(422, 'STRT_INV', 'unknown weekday');
+    return search((d) => d.getUTCDay() === i, 'such weekday');
+  }
+  return day(tomorrow);
+}
+
 export class CoreBank {
   private byCust = new Map<string, Customer>();
   private byExt = new Map<string, string>();
@@ -267,8 +301,9 @@ export class CoreBank {
         if (!Number.isInteger(amt) || amt <= 0) throw new BankError(400, 'AMT_INV', 'invalid amount');
         if (src.ccy !== body.ccy) throw new BankError(422, 'CCY_MISMATCH', 'currency differs from the account');
         const freq = body.freq_cd === 'W' ? 'W' : 'M';
-        const strt = String(body.strt_dt || new Date(Date.now() + 86400000).toISOString().slice(0, 10));
-        data = { src_acct_no: src.acct_no, bnfcry_ref: b.bnfcry_ref, bnfcry_nm: b.bnfcry_nm, amt_minor: amt, ccy: src.ccy, freq_cd: freq, strt_dt: strt };
+        const strt = firstPaymentDate(body);
+        const lbl = new Date(strt + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+        data = { src_acct_no: src.acct_no, bnfcry_ref: b.bnfcry_ref, bnfcry_nm: b.bnfcry_nm, amt_minor: amt, ccy: src.ccy, freq_cd: freq, strt_dt: strt, strt_lbl: lbl };
         break;
       }
       case 'RTP': {

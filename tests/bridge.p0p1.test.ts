@@ -143,6 +143,21 @@ describe('P1 capabilities', () => {
     ]);
   });
 
+  it('recurring transfer with a start day: the bank works out the date and the bank screen shows it', async () => {
+    const s = 'p1-so-start'; const a = await st.mcp(s);
+    const ali = (await a.call('contacts_search', { query: 'Ali Mammadov' })).body.items[0].contact;
+    const prep = await a.call('transfer_recurring_prepare', { contact: ali, amount: 100, currency: 'AZN', frequency: 'monthly', start_day: 5 });
+    expect(prep.isError, JSON.stringify(prep.body)).toBe(false);
+    const r = await confirm(s, prep);
+    const first = r.view.display.find((d: any) => d.key === 'start').value;
+    expect(first).toMatch(/^\w+day, 5 \w+ 20\d\d$/);
+    expect(r.body.status).toBe('committed');
+    const weekly = await a.call('transfer_recurring_prepare', { contact: ali, amount: 20, currency: 'AZN', frequency: 'weekly', start_weekday: 'friday' });
+    expect(weekly.body.details.start).toMatch(/^Friday, /);
+    // the Bridge rejects a day the bank cannot schedule every month
+    expect((await a.call('transfer_recurring_prepare', { contact: ali, amount: 20, currency: 'AZN', frequency: 'monthly', start_day: 31 })).isError).toBe(true);
+  });
+
   it('knowledge base answers from bank content', async () => {
     const a = await st.mcp('p1-kb');
     const r = (await a.call('kb_search', { query: 'fee for transfer to another bank card' })).body;

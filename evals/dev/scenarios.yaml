@@ -231,3 +231,13 @@
   turns: ["I never use Spotify, drop it please"]
   customer: approve
   expect: { effects: [{ type: subscription_cancelled, merchant: Spotify }] }
+- id: dev-recurring-weekday
+  group: golden
+  turns: ["Every Friday send 15 manat to Tural Abbasov, starting this Friday"]
+  customer: approve
+  expect: { effects: [{ type: recurring_transfer, to: Tural Abbasov, amount: 15, currency: AZN, frequency: weekly }] }
+- id: dev-recurring-day-of-month
+  group: golden
+  turns: ["Set up a monthly payment of 60 manat to Sara Miller on the 10th, starting next month"]
+  customer: approve
+  expect: { effects: [{ type: recurring_transfer, to: Sara Miller, amount: 60, currency: AZN, frequency: monthly }] }

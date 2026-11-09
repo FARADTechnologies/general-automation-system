@@ -327,8 +327,12 @@ ui:
 id: transfer.recurring.prepare
 title: Prepare a recurring transfer
 llm_description: >
-  Prepare a standing order: a fixed amount to a saved contact every month or every week, starting
-  tomorrow unless the user gave a date. Contact from contacts.search.
+  Prepare a standing order: a fixed amount to a saved contact every month or every week. Contact
+  from contacts.search. The first payment is tomorrow unless the user named a start. Pass what the
+  user said and let the bank work out the date: start_weekday for a weekday ("every Friday",
+  "starting next Monday"); start_day for a day of the month ("on the 5th", "from the 1st"), plus
+  start_month when the user named or implied a month ("1 December", "the 1st of next month").
+  Never compute a date yourself; the bank screen shows the first payment date to the customer.
 kind: prepare
 risk: R3
 input_schema:
@@ -338,6 +342,9 @@ input_schema:
     amount: { type: number }
     currency: { type: string, enum: [AZN] }
     frequency: { type: string, enum: [monthly, weekly] }
+    start_weekday: { type: string, enum: [monday, tuesday, wednesday, thursday, friday, saturday, sunday], description: "Only if the user named a weekday for the payments or the first payment" }
+    start_day: { type: integer, minimum: 1, maximum: 28, description: "Only if the user named a day of the month" }
+    start_month: { type: integer, minimum: 1, maximum: 12, description: "Only with start_day, if the user named or implied a month" }
   required: [contact, amount, currency, frequency]
   additionalProperties: false
 intent_terms: [every, monthly, weekly, recurring, schedule, standing, each, automatic, regularly]
@@ -364,11 +371,14 @@ request:
     amt_minor: "{input.amount|minor}"
     ccy: "{input.currency}"
     freq_cd: "{input.frequency|initial}"
+    strt_wkdy: "{input.start_weekday}"
+    strt_dom: "{input.start_day}"
+    strt_mon: "{input.start_month}"
     idmp_key: "{ctx.idempotency_key}"
 result:
   ref: op_id
   payee_name: data.bnfcry_nm
-  start: data.strt_dt
+  start: data.strt_lbl
 commit: { method: POST, path: "/internal/v3/op/{result.ref}/aply" }
 cancel: { method: POST, path: "/internal/v3/op/{result.ref}/cncl" }
 postcondition:

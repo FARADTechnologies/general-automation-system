@@ -28,6 +28,7 @@ logs/
 # Audio (raw audio is never persisted)
 *.wav
 *.webm
+!apps/web/public/backup.webm
 *.ogg
 *.mp3
 *.m4a

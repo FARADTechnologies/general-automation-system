@@ -17,7 +17,7 @@
 .stg-label { display: flex; gap: 6px; align-items: center; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; opacity: .65; }
 .stg-said { grid-column: 1 / -1; }
 .stg-quote { margin: 0; font-family: var(--font-display); font-size: 34px; font-weight: 700; line-height: 1.15; }
-.stg-answer { margin: 0; font-size: 20px; opacity: .85; white-space: pre-wrap; max-height: 7.5em; overflow: hidden; }
+.stg-answer { margin: 0; font-size: 20px; opacity: .85; white-space: pre-wrap; max-height: 11em; overflow: hidden; }
 .stg-status { align-self: flex-start; font-size: 14px; font-weight: 700; text-transform: capitalize; padding: 4px 12px; border-radius: 99px; background: #1d3a44; }
 .stg-status.s-waiting_confirmation { background: #1a7a63; }
 .stg-status.s-thinking, .stg-status.s-acting { background: #7a5a12; }

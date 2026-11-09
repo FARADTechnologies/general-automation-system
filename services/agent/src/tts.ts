@@ -22,7 +22,11 @@ interface Clip { chunks: Buffer[]; done: boolean; failed: boolean; waiters: Set<
 
 export class TtsService {
   private clips = new Map<string, Clip>();
+  /** Set when the provider says the account's credits are used up: until then nothing is sent to
+   *  it, so the phone falls back to its own voice at once instead of after failed calls. */
+  private pausedUntil = 0;
   constructor(private cfg: TtsConfig) {}
+  get paused() { return Date.now() < this.pausedUntil; }
   get enabled() { return !!this.cfg.apiKey && this.cfg.voiceId !== 'none'; }
   has(key: string) { const c = this.clips.get(key); return !!c && !c.failed; }
 
@@ -80,6 +84,7 @@ export class TtsService {
     const f = this.cfg.fetchImpl || fetch;
     const t0 = Date.now();
     let last = '';
+    if (this.paused) throw new Error('TTS_FAILED quota');
     for (const model of this.cfg.models) {
       try {
         const res = await f(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(this.cfg.voiceId)}/stream?output_format=mp3_44100_64`, {
@@ -90,6 +95,14 @@ export class TtsService {
         });
         if (res.ok && res.body) return { body: res.body, model, firstByteMs: Date.now() - t0 };
         last = `${model}: ${res.status}`;
+        if (res.status === 401 || res.status === 402 || res.status === 429) {
+          const detail = await res.text().catch(() => '');
+          if (/quota|credits?/i.test(detail)) {
+            this.pausedUntil = Date.now() + 15 * 60_000;
+            console.warn('spoken replies paused for 15 minutes: the speech provider has no credits left; phones use their own voice');
+            break; // the other models draw on the same credits
+          }
+        }
       } catch (e) {
         last = `${model}: ${(e as Error).name}`;
       }

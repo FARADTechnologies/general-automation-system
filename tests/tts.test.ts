@@ -44,6 +44,16 @@ describe('voice provider', () => {
     expect(status).toBe(200); expect(ended).toBe(true); expect(got).toEqual([7, 8, 9]);
     expect(calls).toBe(1);
   });
+  it('stops calling the provider when its credits are used up', async () => {
+    let calls = 0;
+    const f = (async () => { calls++; return new Response(JSON.stringify({ detail: { status: 'quota_exceeded', message: 'This request exceeds your quota. You have 12 credits remaining.' } }), { status: 401 }); }) as unknown as typeof fetch;
+    const t = new TtsService({ apiKey: 'k', voiceId: 'v', models: ['a', 'b'], timeoutMs: 1000, fetchImpl: f });
+    await expect(t.stream('hello')).rejects.toThrow('TTS_FAILED');
+    expect(calls).toBe(1); // the second model shares the same credits, so it is not tried
+    expect(t.paused).toBe(true);
+    await expect(t.stream('again')).rejects.toThrow('TTS_FAILED');
+    expect(calls).toBe(1); // nothing is sent while paused
+  });
   it('is off without a key', () => {
     expect(new TtsService({ apiKey: '', voiceId: 'v', models: ['m'], timeoutMs: 1 }).enabled).toBe(false);
   });

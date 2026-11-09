@@ -56,3 +56,174 @@ ui:
     done: "Done. Your card {card} is blocked."
   route: /app/cards
   fields: []
+---
+id: card.settings.prepare
+title: Prepare turning a card's payment setting on or off
+llm_description: >
+  Turn one of a card's payment settings on or off: online payments, contactless payments or
+  payments abroad. card is a token from cards.list. Turning a setting off protects the card;
+  turning it on is confirmed with the customer's fingerprint on the bank screen.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    card: { type: string, description: "Card token from cards.list" }
+    setting: { type: string, enum: [online_payments, contactless, payments_abroad] }
+    enabled: { type: boolean }
+  required: [card, setting, enabled]
+  additionalProperties: false
+intent_terms: [turn, switch, enable, disable, allow, block, stop, activate, deactivate, online, internet, contactless, abroad, travel, settings]
+critical_args:
+  card: { token: card, provenance: [bank_record] }
+request:
+  method: POST
+  path: /internal/v3/crd/sttg_req
+  body:
+    cust_id: "{ctx.cust_id}"
+    crd_pan: "{args.card}"
+    sttg_cd: "{input.setting}"
+    val: "{input.enabled}"
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: op_id
+  card_name: data.crd_nm
+  card_last4: { from: data.crd_pan, transform: last4 }
+  setting_name: data.sttg_nm
+  new_state: data.val_txt
+commit: { method: POST, path: "/internal/v3/op/{result.ref}/aply" }
+cancel: { method: POST, path: "/internal/v3/op/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/op/{result.ref}
+  expect: { sts_cd: DONE }
+confirm:
+  level: biometric
+  title: Card settings
+  display:
+    - { key: card, label: Card, value: "{result.card_name} •••• {result.card_last4}" }
+    - { key: setting, label: Setting, value: "{result.setting_name}" }
+    - { key: new_state, label: Change to, value: "{result.new_state}" }
+errors:
+  VIRTUAL: { code: VIRTUAL_CARD, message: "A virtual card has no contactless payments." }
+ui:
+  say:
+    start: "I'm preparing to turn {setting} {new_state} on your card {card}."
+    done: "Done. {setting} is now {new_state} on your card {card}."
+  route: /app/cards
+---
+id: card.limit.prepare
+title: Prepare changing a card's daily limit
+llm_description: >
+  Change one of a card's daily limits: purchases, cash withdrawals or online payments. card is a
+  token from cards.list; amount is the new daily limit the customer said, in the card's currency.
+  The customer confirms with fingerprint on the bank screen.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    card: { type: string, description: "Card token from cards.list" }
+    limit: { type: string, enum: [purchase, cash, online] }
+    amount: { type: number }
+  required: [card, limit, amount]
+  additionalProperties: false
+intent_terms: [limit, limits, raise, lower, increase, decrease, set, change, daily, maximum]
+critical_args:
+  card: { token: card, provenance: [bank_record] }
+  amount: { provenance: [user_stated] }
+request:
+  method: POST
+  path: /internal/v3/crd/lmt_req
+  body:
+    cust_id: "{ctx.cust_id}"
+    crd_pan: "{args.card}"
+    lmt_cd: "{input.limit}"
+    amt_minor: "{input.amount|minor}"
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: op_id
+  card_name: data.crd_nm
+  card_last4: { from: data.crd_pan, transform: last4 }
+  limit_name: data.lmt_nm
+  new_limit: { from: data.amt_minor, transform: major }
+  old_limit: { from: data.prev_minor, transform: major }
+  currency: data.ccy
+commit: { method: POST, path: "/internal/v3/op/{result.ref}/aply" }
+cancel: { method: POST, path: "/internal/v3/op/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/op/{result.ref}
+  expect: { sts_cd: DONE }
+confirm:
+  level: biometric
+  title: Card limit
+  display:
+    - { key: card, label: Card, value: "{result.card_name} •••• {result.card_last4}" }
+    - { key: limit, label: Limit, value: "{result.limit_name}" }
+    - { key: old_limit, label: Now, value: "{result.old_limit|money:result.currency}" }
+    - { key: amount, label: New limit, value: "{result.new_limit|money:result.currency}" }
+errors:
+  LMT_RANGE: { code: LIMIT_OUT_OF_RANGE, message: "That limit is outside what the bank allows for this card." }
+  VIRTUAL: { code: VIRTUAL_CARD, message: "A virtual card has no cash withdrawals." }
+ui:
+  say:
+    start: "I'm preparing to change the {limit} on your card {card} to {amount}."
+    done: "Done. The {limit} on your card {card} is now {amount}."
+  route: /app/cards
+---
+id: card.new.prepare
+title: Prepare ordering a new card
+llm_description: >
+  Order a new card linked to the customer's AZN or USD current account. A virtual card is issued at
+  once for online payments; a physical card is made for pickup at a branch (branch token from
+  branches.list, required for physical cards). Ask which kind if the customer did not say.
+kind: prepare
+risk: R2
+input_schema:
+  type: object
+  properties:
+    kind: { type: string, enum: [virtual, physical] }
+    currency: { type: string, enum: [AZN, USD] }
+    branch: { type: string, description: "Branch token from branches.list, for a physical card" }
+  required: [kind, currency]
+  additionalProperties: false
+intent_terms: [new, order, open, issue, create, another, virtual, physical]
+critical_args:
+  branch: { token: branch, provenance: [bank_record] }
+request:
+  method: POST
+  path: /internal/v3/crd/new_req
+  body:
+    cust_id: "{ctx.cust_id}"
+    knd_cd: "{input.kind}"
+    ccy: "{input.currency}"
+    brnch_cd: "{args.branch}"
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: op_id
+  card_name: data.crd_nm
+  pickup: { from: data.brnch_nm, transform: str }
+  ready: data.rdy_dt
+commit: { method: POST, path: "/internal/v3/op/{result.ref}/aply" }
+cancel: { method: POST, path: "/internal/v3/op/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/op/{result.ref}
+  expect: { sts_cd: DONE }
+confirm:
+  level: tap
+  title: New card
+  display:
+    - { key: card, label: Card, value: "{result.card_name}" }
+    - { key: account, label: Linked to, value: "{input.currency} current account" }
+    - { key: pickup, label: Pickup, value: "{result.pickup|default:Not needed, it is a virtual card}" }
+    - { key: ready, label: Ready, value: "{result.ready}" }
+    - { key: fee, label: Fee, value: "0.00 AZN" }
+errors:
+  BRNCH_NF: { code: BRANCH_REQUIRED, message: "A physical card needs a pickup branch from branches.list." }
+ui:
+  say:
+    start: "I'm ordering your new {card}."
+    done: "Done. Your new {card} is ordered. Ready: {ready}."
+  route: /app/cards

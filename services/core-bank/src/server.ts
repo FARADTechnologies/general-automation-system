@@ -3,7 +3,7 @@
 //  /app-api/v1/*   the bank app's own backend (masked values only), keyed by demo session
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { timingSafeEqual } from 'node:crypto';
-import { CoreBank, BankError } from './bank.ts';
+import { CoreBank, BankError, cardControls } from './bank.ts';
 import { mountExtras } from './extras.ts';
 import { mountAppExtras } from './app-extras.ts';
 
@@ -114,7 +114,7 @@ export function createCoreBankApp(opts: { serviceKey: string; bank?: CoreBank; k
     res.json({
       user: { firstName: d.cust.frst_nm, segment: d.cust.seg_cd === 'PRM' ? 'Premium' : 'Standard' },
       accounts: d.accts.map((a) => ({ id: 'acc-' + last4(a.acct_no), name: a.acct_nm, type: a.acct_typ_cd === 'SAV' ? 'savings' : 'current', currency: a.ccy, balance: major(a.bal_minor), last4: last4(a.acct_no) })),
-      cards: d.crds.map((c) => ({ id: 'crd-' + last4(c.crd_pan), name: c.crd_nm, network: c.ntwrk_cd, last4: last4(c.crd_pan), status: c.crd_sts_cd === 'B' ? 'blocked' : 'active', virtual: c.vrtl_flg === 'Y', expiry: c.exp_dt, accountId: 'acc-' + last4(c.lnk_acct_no) })),
+      cards: d.crds.map((c) => { const k = cardControls(c); return { id: 'crd-' + last4(c.crd_pan), name: c.crd_nm, network: c.ntwrk_cd, last4: last4(c.crd_pan), status: c.crd_sts_cd === 'B' ? 'blocked' : 'active', virtual: c.vrtl_flg === 'Y', expiry: c.exp_dt, accountId: 'acc-' + last4(c.lnk_acct_no), online: k.online === 'Y', contactless: k.contactless === 'Y', abroad: k.abroad === 'Y', limits: { purchase: k.purchase / 100, atm: k.atm / 100, online: k.online_lmt / 100 } }; }),
     });
   });
   appApi.get('/transactions', (req, res) => {

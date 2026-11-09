@@ -2,7 +2,7 @@
 // "core banking" style; the Bridge translates them. All people and numbers are fictional.
 
 export interface Acct { acct_no: string; acct_typ_cd: 'CUR' | 'SAV'; ccy: 'AZN' | 'USD'; bal_minor: number; acct_nm: string }
-export interface Crd { crd_pan: string; lnk_acct_no: string; crd_sts_cd: 'A' | 'B'; prod_cd: string; crd_nm: string; exp_dt: string; cvv_val: string; ntwrk_cd: 'VISA' | 'MC'; vrtl_flg: 'Y' | 'N' }
+export interface Crd { crd_pan: string; lnk_acct_no: string; crd_sts_cd: 'A' | 'B'; prod_cd: string; crd_nm: string; exp_dt: string; cvv_val: string; ntwrk_cd: 'VISA' | 'MC'; vrtl_flg: 'Y' | 'N'; onln_flg?: 'Y' | 'N'; ctls_flg?: 'Y' | 'N'; abrd_flg?: 'Y' | 'N'; lmt_pur_minor?: number; lmt_atm_minor?: number; lmt_onl_minor?: number }
 export interface Bnfcry { bnfcry_ref: string; bnfcry_nm: string; msisdn: string; dst_pan: string; frst_pmt_dt: string | null }
 export interface Txn { txn_ref: string; acct_no: string; bkg_dt: string; amt_minor: number; ccy: string; mrch_nm: string; txn_desc: string; ctgry_cd: string; crd_pan: string | null; cntrpty_nm: string | null }
 export interface Bll { bll_ref: string; blr_cd: string; blr_nm: string; sbscr_no: string; due_amt_minor: number; ccy: string; bll_sts_cd: 'UNPD' | 'PAID'; due_dt: string }

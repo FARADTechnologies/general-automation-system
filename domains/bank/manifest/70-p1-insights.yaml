@@ -518,3 +518,157 @@ response:
     text: txt
 ui:
   route: /app/support
+---
+id: deposits.list
+title: Term deposits
+llm_description: >
+  The customer's term deposits (product, amount, rate, term, maturity date) and the deposit
+  products the bank offers with their rates by term.
+kind: read
+risk: R0
+input_schema:
+  type: object
+  properties: {}
+  additionalProperties: false
+request:
+  method: GET
+  path: /internal/v3/cust/{ctx.cust_id}/dpst
+response:
+  items: items
+  fields:
+    product: prod_nm
+    currency: ccy
+    amount: { from: amt_minor, transform: major }
+    rate_percent: rate
+    term_months: term_m
+    matures: mat_dt
+  extra:
+    products_offered: "Smart Saver (AZN, monthly interest; 6 months 7.5%, 12 months 9%, 18 months 9.5%; minimum 100), Flex Save (AZN, withdraw anytime; 3 months 5%, 6 months 6%; minimum 50), Dollar Deposit (USD, interest at maturity; 12 months 2%; minimum 100)"
+ui:
+  route: /app/deposits
+---
+id: deposit.open.prepare
+title: Prepare opening a term deposit
+llm_description: >
+  Open a term deposit from the current account in the product's currency. product is one of the
+  bank's products (smart_saver, flex_save, dollar_deposit); term_months must be a term that product
+  offers (see deposits.list); amount is what the customer said. The bank works out the rate,
+  interest and maturity date; never compute them. The customer confirms with fingerprint.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    product: { type: string, enum: [smart_saver, flex_save, dollar_deposit] }
+    term_months: { type: integer, enum: [3, 6, 12, 18] }
+    amount: { type: number }
+  required: [product, term_months, amount]
+  additionalProperties: false
+intent_terms: [deposit, deposits, open, save, savings, invest, put, term, saver]
+critical_args:
+  amount: { provenance: [user_stated] }
+request:
+  method: POST
+  path: /internal/v3/dpst/open_req
+  body:
+    cust_id: "{ctx.cust_id}"
+    prod_cd: "{input.product}"
+    term_m: "{input.term_months}"
+    amt_minor: "{input.amount|minor}"
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: op_id
+  product: data.prod_nm
+  currency: data.ccy
+  rate: data.rate
+  term: data.term_m
+  matures: data.mat_dt
+  interest: { from: data.int_minor, transform: major }
+  source_name: data.src_acct_nm
+  source_last4: { from: data.src_acct_no, transform: last4 }
+commit: { method: POST, path: "/internal/v3/op/{result.ref}/aply" }
+cancel: { method: POST, path: "/internal/v3/op/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/op/{result.ref}
+  expect: { sts_cd: DONE }
+confirm:
+  level: biometric
+  title: Open a deposit
+  display:
+    - { key: product, label: Deposit, value: "{result.product}" }
+    - { key: amount, label: Amount, value: "{input.amount|money:result.currency}" }
+    - { key: term, label: Term, value: "{result.term} months" }
+    - { key: rate, label: Annual rate, value: "{result.rate}%" }
+    - { key: interest, label: Interest at maturity, value: "{result.interest|money:result.currency}" }
+    - { key: matures, label: Matures on, value: "{result.matures}" }
+    - { key: source_account, label: From, value: "{result.source_name} •••• {result.source_last4}" }
+errors:
+  TERM_INV: { code: TERM_NOT_OFFERED, message: "That product is not offered for this term; check deposits.list." }
+  AMT_MIN: { code: BELOW_MINIMUM, message: "The amount is below the product's minimum." }
+  NSF: { code: INSUFFICIENT_FUNDS, message: "Not enough money in the current account." }
+ui:
+  say:
+    start: "I'm preparing a {product} deposit of {amount} for {term} at {rate} a year."
+    done: "Done. Your {product} deposit of {amount} is open. It matures on {matures}."
+  route: /app/deposits
+---
+id: loan.apply.prepare
+title: Prepare a cash loan application
+llm_description: >
+  Apply for a cash loan in AZN. amount (300 to 30,000) and term_months (6, 12, 24, 36, 48 or 59) as
+  the customer said; ask for whichever is missing. The bank prices the loan, works out the monthly
+  payment and decides whether it is pre-approved or goes to a specialist; never compute or promise
+  these. This only submits an application; no money moves.
+kind: prepare
+risk: R2
+input_schema:
+  type: object
+  properties:
+    amount: { type: number }
+    term_months: { type: integer, enum: [6, 12, 24, 36, 48, 59] }
+    purpose: { type: string, enum: [personal, car, home_repair, education, travel, other] }
+  required: [amount, term_months]
+  additionalProperties: false
+intent_terms: [loan, borrow, credit, apply, finance, lend]
+critical_args:
+  amount: { provenance: [user_stated] }
+request:
+  method: POST
+  path: /internal/v3/loan/app_req
+  body:
+    cust_id: "{ctx.cust_id}"
+    amt_minor: "{input.amount|minor}"
+    term_m: "{input.term_months}"
+    purp_cd: "{input.purpose}"
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: op_id
+  rate: data.rate
+  monthly: { from: data.mthly_minor, transform: major }
+  total: { from: data.ttl_minor, transform: major }
+  decision: data.dcsn
+commit: { method: POST, path: "/internal/v3/op/{result.ref}/aply" }
+cancel: { method: POST, path: "/internal/v3/op/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/op/{result.ref}
+  expect: { sts_cd: DONE }
+confirm:
+  level: tap
+  title: Loan application
+  display:
+    - { key: amount, label: Amount, value: "{input.amount|money:AZN}" }
+    - { key: term, label: Term, value: "{input.term_months} months" }
+    - { key: rate, label: Annual rate, value: "{result.rate}%" }
+    - { key: monthly, label: Monthly payment, value: "{result.monthly|money:AZN}" }
+    - { key: total, label: Total to repay, value: "{result.total|money:AZN}" }
+    - { key: decision, label: Decision, value: "{result.decision}" }
+errors:
+  AMT_RANGE: { code: AMOUNT_OUT_OF_RANGE, message: "A cash loan is between 300 and 30,000 AZN." }
+  TERM_INV: { code: TERM_NOT_OFFERED, message: "Terms are 6, 12, 24, 36, 48 or 59 months." }
+ui:
+  say:
+    start: "I'm preparing a loan application for {amount} over {term}. The monthly payment would be {monthly}."
+    done: "Done. Your loan application is submitted. {decision}."
+  route: /app/loans/apply

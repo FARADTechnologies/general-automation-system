@@ -13,9 +13,10 @@ export interface Fault { op: string; mode: 'error' | 'timeout'; cnt: number }
 /** Business effects journal, used by the evaluation oracle to compare outcomes. */
 export type Effect = Record<string, string | number>;
 /** Generic two-phase operation: created pending, applied on confirmation. */
-export interface Op { op_id: string; cust_id: string; knd: 'BTCH' | 'RPLC' | 'SO' | 'RTP' | 'SBCN' | 'INV'; sts_cd: 'PEND' | 'DONE' | 'CNCL' | 'RJCT'; idmp_key: string; crt_ts: string; data: Record<string, any> }
+export interface Op { op_id: string; cust_id: string; knd: 'BTCH' | 'RPLC' | 'SO' | 'RTP' | 'SBCN' | 'INV' | 'CSET' | 'CLMT' | 'NCRD' | 'DPST' | 'LOAN'; sts_cd: 'PEND' | 'DONE' | 'CNCL' | 'RJCT'; idmp_key: string; crt_ts: string; data: Record<string, any> }
 
-interface Customer { cust_id: string; ext_ref: string; data: CustomerData; drfts: Map<string, Drft>; chg: Map<string, CrdChgReq>; ops: Map<string, Op>; faults: Fault[]; journal: Effect[]; so: any[]; rtp: any[]; rplc: any[]; pfl: Holding[] }
+interface Customer { cust_id: string; ext_ref: string; data: CustomerData; drfts: Map<string, Drft>; chg: Map<string, CrdChgReq>; ops: Map<string, Op>; faults: Fault[]; journal: Effect[]; so: any[]; rtp: any[]; rplc: any[]; pfl: Holding[]; dpst: Deposit[] }
+export interface Deposit { dpst_id: string; prod_cd: string; prod_nm: string; ccy: string; amt_minor: number; rate: number; term_m: number; opn_dt: string; mat_dt: string }
 
 export class BankError extends Error {
   constructor(public status: number, public rsn_cd: string, msg: string) { super(msg); }
@@ -35,6 +36,29 @@ export function ibanValid(iban: string): boolean {
   }
   return rem === 1;
 }
+
+/** Term deposit products: annual rate by term in months, minimum amount. */
+export const DEPOSIT_PRODUCTS: Record<string, { nm: string; ccy: string; rates: Record<number, number>; min_minor: number; note: string }> = {
+  smart_saver: { nm: 'Smart Saver', ccy: 'AZN', rates: { 6: 7.5, 12: 9, 18: 9.5 }, min_minor: 10000, note: 'Monthly interest payout' },
+  flex_save: { nm: 'Flex Save', ccy: 'AZN', rates: { 3: 5, 6: 6 }, min_minor: 5000, note: 'Top up and withdraw anytime' },
+  dollar_deposit: { nm: 'Dollar Deposit', ccy: 'USD', rates: { 12: 2 }, min_minor: 10000, note: 'Interest at maturity' },
+};
+
+const luhnOk = (n: string) => { let s = 0, dbl = false; for (let i = n.length - 1; i >= 0; i--) { let d = n.charCodeAt(i) - 48; if (dbl) { d *= 2; if (d > 9) d -= 9; } s += d; dbl = !dbl; } return s % 10 === 0; };
+
+/** A card's payment settings and daily limits, with the bank's defaults where none were set. */
+export function cardControls(c: { vrtl_flg: 'Y' | 'N'; onln_flg?: 'Y' | 'N'; ctls_flg?: 'Y' | 'N'; abrd_flg?: 'Y' | 'N'; lmt_pur_minor?: number; lmt_atm_minor?: number; lmt_onl_minor?: number }) {
+  return {
+    online: c.onln_flg ?? 'Y', contactless: c.ctls_flg ?? (c.vrtl_flg === 'Y' ? 'N' : 'Y'), abroad: c.abrd_flg ?? 'Y',
+    purchase: c.lmt_pur_minor ?? 200000, atm: c.lmt_atm_minor ?? (c.vrtl_flg === 'Y' ? 0 : 100000), online_lmt: c.lmt_onl_minor ?? 150000,
+  };
+}
+const SETTINGS: Record<string, { fld: 'onln_flg' | 'ctls_flg' | 'abrd_flg'; nm: string }> = {
+  online_payments: { fld: 'onln_flg', nm: 'Online payments' }, contactless: { fld: 'ctls_flg', nm: 'Contactless payments' }, payments_abroad: { fld: 'abrd_flg', nm: 'Payments abroad' },
+};
+const LIMITS: Record<string, { fld: 'lmt_pur_minor' | 'lmt_atm_minor' | 'lmt_onl_minor'; nm: string; max: number }> = {
+  purchase: { fld: 'lmt_pur_minor', nm: 'Daily purchase limit', max: 500000 }, cash: { fld: 'lmt_atm_minor', nm: 'Daily cash withdrawal limit', max: 300000 }, online: { fld: 'lmt_onl_minor', nm: 'Daily online limit', max: 500000 },
+};
 
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 /** First payment of a standing order, from what the customer said: a weekday (strt_wkdy), a day
@@ -79,7 +103,7 @@ export class CoreBank {
     const existing = this.byExt.get(ext_ref);
     if (existing) return existing;
     const cust_id = 'C' + randomBytes(6).toString('hex').toUpperCase();
-    this.byCust.set(cust_id, { cust_id, ext_ref, data: seedCustomer(), drfts: new Map(), chg: new Map(), ops: new Map(), faults: [], journal: [], so: [], rtp: [], rplc: [], pfl: seedPortfolio() });
+    this.byCust.set(cust_id, { cust_id, ext_ref, data: seedCustomer(), drfts: new Map(), chg: new Map(), ops: new Map(), faults: [], journal: [], so: [], rtp: [], rplc: [], pfl: seedPortfolio(), dpst: [{ dpst_id: 'DP0001', prod_cd: 'smart_saver', prod_nm: 'Smart Saver', ccy: 'AZN', amt_minor: 150000, rate: 9, term_m: 12, opn_dt: new Date(Date.now() - 120 * 86400000).toISOString(), mat_dt: new Date(Date.now() + 245 * 86400000).toISOString() }] });
     this.byExt.set(ext_ref, cust_id);
     return cust_id;
   }
@@ -335,6 +359,72 @@ export class CoreBank {
         data = { src_acct_no: src.acct_no, items: unpaid.map((b) => ({ bll_ref: b.bll_ref, blr_nm: b.blr_nm, amt_minor: b.due_amt_minor })), ttl_minor: ttl, ccy: src.ccy, itm_cnt: unpaid.length, blr_list: unpaid.map((b) => `${b.blr_nm} ${(b.due_amt_minor / 100).toFixed(2)}`).join(', ') };
         break;
       }
+      case 'CSET': {
+        // turn a card's online payments, contactless or payments abroad on or off
+        const card = c.data.crds.find((x) => x.crd_pan === body.crd_pan);
+        if (!card) throw new BankError(404, 'CRD_NF', 'card not found');
+        const st = SETTINGS[String(body.sttg_cd)];
+        if (!st) throw new BankError(400, 'STTG_INV', 'unknown setting');
+        const on = String(body.val) === 'true' || body.val === true || body.val === 'Y';
+        if (st.fld === 'ctls_flg' && card.vrtl_flg === 'Y' && on) throw new BankError(422, 'VIRTUAL', 'a virtual card has no contactless payments');
+        data = { crd_pan: card.crd_pan, crd_nm: card.crd_nm, sttg_cd: String(body.sttg_cd), sttg_nm: st.nm, val: on ? 'Y' : 'N', val_txt: on ? 'On' : 'Off' };
+        break;
+      }
+      case 'CLMT': {
+        // change one of a card's daily limits (amount in the card account's currency)
+        const card = c.data.crds.find((x) => x.crd_pan === body.crd_pan);
+        if (!card) throw new BankError(404, 'CRD_NF', 'card not found');
+        const lm = LIMITS[String(body.lmt_cd)];
+        if (!lm) throw new BankError(400, 'LMT_INV', 'unknown limit');
+        const amt = Number(body.amt_minor);
+        if (!Number.isInteger(amt) || amt < 0 || amt > lm.max) throw new BankError(422, 'LMT_RANGE', `limit must be between 0 and ${lm.max / 100}`);
+        if (lm.fld === 'lmt_atm_minor' && card.vrtl_flg === 'Y') throw new BankError(422, 'VIRTUAL', 'a virtual card has no cash withdrawals');
+        const ccy = c.data.accts.find((a) => a.acct_no === card.lnk_acct_no)?.ccy || 'AZN';
+        const prev = (cardControls(card) as Record<string, number | string>)[String(body.lmt_cd) === 'cash' ? 'atm' : String(body.lmt_cd) === 'online' ? 'online_lmt' : 'purchase'];
+        data = { crd_pan: card.crd_pan, crd_nm: card.crd_nm, lmt_cd: String(body.lmt_cd), lmt_nm: lm.nm, amt_minor: amt, prev_minor: prev, ccy };
+        break;
+      }
+      case 'LOAN': {
+        // a cash loan application: the bank prices it (annuity at 14.9% a year) and pre-approves up
+        // to 15,000 AZN; above that a specialist reviews it. No money moves at this step.
+        const amt = Number(body.amt_minor);
+        const term = Number(body.term_m);
+        if (!Number.isInteger(amt) || amt < 30000 || amt > 3000000) throw new BankError(422, 'AMT_RANGE', 'loan amount must be between 300 and 30,000 AZN');
+        if (![6, 12, 24, 36, 48, 59].includes(term)) throw new BankError(422, 'TERM_INV', 'term must be 6, 12, 24, 36, 48 or 59 months');
+        const r = 0.149 / 12;
+        const monthly = Math.round(amt * r / (1 - Math.pow(1 + r, -term)));
+        data = { amt_minor: amt, term_m: term, rate: 14.9, mthly_minor: monthly, ttl_minor: monthly * term, ccy: 'AZN', dcsn: amt <= 1500000 ? 'Pre-approved' : 'Sent to a loan specialist for review', purp: String(body.purp_cd || 'personal').slice(0, 30) };
+        break;
+      }
+      case 'DPST': {
+        // open a term deposit from the current account in the product's currency
+        const p = DEPOSIT_PRODUCTS[String(body.prod_cd)];
+        if (!p) throw new BankError(400, 'PROD_INV', 'unknown deposit product');
+        const term = Number(body.term_m);
+        const rate = p.rates[term];
+        if (!rate) throw new BankError(422, 'TERM_INV', `${p.nm} is offered for ${Object.keys(p.rates).join(', ')} months`);
+        const amt = Number(body.amt_minor);
+        if (!Number.isInteger(amt) || amt < p.min_minor) throw new BankError(422, 'AMT_MIN', `minimum for ${p.nm} is ${p.min_minor / 100} ${p.ccy}`);
+        const src = c.data.accts.find((a) => a.ccy === p.ccy && a.acct_typ_cd === 'CUR');
+        if (!src) throw new BankError(404, 'ACCT_NF', 'no current account in the deposit currency');
+        if (amt > src.bal_minor) throw new BankError(422, 'NSF', 'insufficient funds');
+        const mat = new Date(Date.now() + term * 30.4375 * 86400000);
+        data = { prod_cd: String(body.prod_cd), prod_nm: p.nm, ccy: p.ccy, amt_minor: amt, rate, term_m: term, src_acct_no: src.acct_no, src_acct_nm: src.acct_nm, mat_dt: mat.toISOString().slice(0, 10), int_minor: Math.round(amt * rate / 100 * term / 12) };
+        break;
+      }
+      case 'NCRD': {
+        // a new card: virtual cards are issued at once, physical cards are made for branch pickup
+        const kind = String(body.knd_cd) === 'physical' ? 'physical' : String(body.knd_cd) === 'virtual' ? 'virtual' : '';
+        if (!kind) throw new BankError(400, 'KND_INV', 'card kind must be virtual or physical');
+        const ccy = String(body.ccy || 'AZN');
+        const acc = c.data.accts.find((a) => a.ccy === ccy && a.acct_typ_cd === 'CUR');
+        if (!acc) throw new BankError(404, 'ACCT_NF', 'no current account in that currency');
+        let br: { brnch_cd: string; brnch_nm: string } | undefined;
+        if (kind === 'physical') { br = c.data.brnch.find((x) => x.brnch_cd === body.brnch_cd); if (!br) throw new BankError(404, 'BRNCH_NF', 'a physical card needs a pickup branch'); }
+        const nm = kind === 'virtual' ? `Virtual ${ccy} card` : `Caspia ${ccy === 'USD' ? 'Dollar' : 'Debit'} card`;
+        data = { knd_cd: kind, ccy, lnk_acct_no: acc.acct_no, crd_nm: nm, brnch_cd: br?.brnch_cd ?? null, brnch_nm: br?.brnch_nm ?? null, rdy_dt: kind === 'virtual' ? 'Now' : new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10), fee_minor: 0 };
+        break;
+      }
       case 'RPLC': {
         const card = c.data.crds.find((x) => x.crd_pan === body.crd_pan);
         if (!card) throw new BankError(404, 'CRD_NF', 'card not found');
@@ -416,6 +506,38 @@ export class CoreBank {
           c.data.txns.unshift({ txn_ref: id('TXN'), acct_no: src.acct_no, bkg_dt: new Date().toISOString(), amt_minor: -b.due_amt_minor, ccy: b.ccy, mrch_nm: b.blr_nm, txn_desc: '', ctgry_cd: b.blr_cd === 'BAKCELL' ? 'MOBL' : 'UTIL', crd_pan: null, cntrpty_nm: null });
           c.journal.push({ type: 'bill_paid', biller: b.blr_nm });
         }
+        break;
+      }
+      case 'CSET': {
+        const card = c.data.crds.find((x) => x.crd_pan === d.crd_pan)!;
+        card[SETTINGS[d.sttg_cd].fld] = d.val;
+        c.journal.push({ type: 'card_setting', last4: d.crd_pan.slice(-4), setting: d.sttg_cd, enabled: d.val === 'Y' ? 'yes' : 'no' });
+        break;
+      }
+      case 'CLMT': {
+        const card = c.data.crds.find((x) => x.crd_pan === d.crd_pan)!;
+        card[LIMITS[d.lmt_cd].fld] = d.amt_minor;
+        c.journal.push({ type: 'card_limit', last4: d.crd_pan.slice(-4), limit: d.lmt_cd, amount: d.amt_minor / 100 });
+        break;
+      }
+      case 'LOAN':
+        c.journal.push({ type: 'loan_application', amount: d.amt_minor / 100, months: d.term_m });
+        break;
+      case 'DPST': {
+        const src = c.data.accts.find((a) => a.acct_no === d.src_acct_no)!;
+        if (d.amt_minor > src.bal_minor) throw new BankError(422, 'NSF', 'insufficient funds');
+        src.bal_minor -= d.amt_minor;
+        c.data.txns.unshift({ txn_ref: id('TXN'), acct_no: src.acct_no, bkg_dt: new Date().toISOString(), amt_minor: -d.amt_minor, ccy: d.ccy, mrch_nm: `Deposit ${d.prod_nm}`, txn_desc: '', ctgry_cd: 'OWN', crd_pan: null, cntrpty_nm: null });
+        c.dpst.push({ dpst_id: id('DP'), prod_cd: d.prod_cd, prod_nm: d.prod_nm, ccy: d.ccy, amt_minor: d.amt_minor, rate: d.rate, term_m: d.term_m, opn_dt: new Date().toISOString(), mat_dt: new Date(d.mat_dt + 'T00:00:00Z').toISOString() });
+        c.journal.push({ type: 'deposit_opened', product: d.prod_nm, amount: d.amt_minor / 100, currency: d.ccy, months: d.term_m });
+        break;
+      }
+      case 'NCRD': {
+        const last4 = String(1000 + ((c.data.crds.length * 7919 + Date.now()) % 9000));
+        const pan = (() => { for (let k = 0; k < 100000; k++) { const p = ('4169' + String((k * 104729 + Date.now()) % 1e8).padStart(8, '0')) + last4; if (luhnOk(p)) return p; } return '4169000000000000'; })();
+        if (d.knd_cd === 'virtual') c.data.crds.push({ crd_pan: pan, lnk_acct_no: d.lnk_acct_no, crd_sts_cd: 'A', prod_cd: 'VVRT', crd_nm: d.crd_nm, exp_dt: '11/30', cvv_val: '•••', ntwrk_cd: 'VISA', vrtl_flg: 'Y' });
+        d.crd_last4 = pan.slice(-4);
+        c.journal.push({ type: 'card_issued', kind: d.knd_cd, currency: d.ccy });
         break;
       }
       case 'RPLC':

@@ -60,6 +60,12 @@ export function mountExtras(internal: Router, bank: CoreBank, opts: { kbDir?: st
   // two-phase operations
   internal.post('/v3/pmt/btch', async (req, res) => { res.status(201).json(await bank.createOp('BTCH', req.body || {})); });
   internal.post('/v3/crd/rplc_req', async (req, res) => { res.status(201).json(await bank.createOp('RPLC', req.body || {})); });
+  internal.post('/v3/crd/sttg_req', async (req, res) => { res.status(201).json(await bank.createOp('CSET', req.body || {})); });
+  internal.post('/v3/loan/app_req', async (req, res) => { res.status(201).json(await bank.createOp('LOAN', req.body || {})); });
+  internal.post('/v3/dpst/open_req', async (req, res) => { res.status(201).json(await bank.createOp('DPST', req.body || {})); });
+  internal.get('/v3/cust/:cust/dpst', (req, res) => { res.json({ items: bank.cust(req.params.cust).dpst }); });
+  internal.post('/v3/crd/new_req', async (req, res) => { res.status(201).json(await bank.createOp('NCRD', req.body || {})); });
+  internal.post('/v3/crd/lmt_req', async (req, res) => { res.status(201).json(await bank.createOp('CLMT', req.body || {})); });
   internal.post('/v3/so/drft', async (req, res) => { res.status(201).json(await bank.createOp('SO', req.body || {})); });
   internal.post('/v3/rtp/drft', async (req, res) => { res.status(201).json(await bank.createOp('RTP', req.body || {})); });
   internal.post('/v3/sbscr/cncl_req', async (req, res) => { res.status(201).json(await bank.createOp('SBCN', req.body || {})); });

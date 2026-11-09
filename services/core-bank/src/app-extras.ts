@@ -57,6 +57,10 @@ export function mountAppExtras(appApi: Router, bank: CoreBank, custOf: (req: Req
     res.json({ total: fmt(total), items: [...m.entries()].sort((a, b) => b[1] - a[1]).map(([source, v]) => ({ source, amount: fmt(v), share: total ? Math.round((v / total) * 100) : 0 })) });
   });
 
+  appApi.get('/deposits', (req, res) => {
+    res.json({ items: bank.cust(custOf(req)).dpst.map((d) => ({ id: d.dpst_id, name: d.prod_nm, currency: d.ccy, amount: d.amt_minor / 100, rate: d.rate, term: d.term_m, opened: d.opn_dt, maturity: d.mat_dt })) });
+  });
+
   appApi.get('/branches', (req, res) => {
     res.json(bank.cust(custOf(req)).data.brnch.map((b) => ({ id: b.brnch_cd, name: b.brnch_nm, address: `${b.addr_txt}, ${b.city_nm}`, hours: b.hrs_txt })));
   });

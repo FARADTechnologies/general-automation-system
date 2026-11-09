@@ -40,9 +40,11 @@ export function StoreProvider({ children }) {
   const contacts = useBank('contacts');
   const bills = useBank('bills');
   const templates = useBank('templates');
+  const deposits = useBank('deposits');
 
   const state = useMemo(() => {
     const s = { ...local, billers: { ...local.billers } };
+    if (deposits.data?.items) s.deposits = deposits.data.items; // the bank's own term deposits
     const sum = summary.data;
     if (sum) {
       s.user = { ...local.user, firstName: sum.user.firstName, segment: sum.user.segment };
@@ -50,7 +52,7 @@ export function StoreProvider({ children }) {
       const accIdOf = (appId) => { const a = sum.accounts.find((x) => x.id === appId); return a ? ACC_ID[`${a.type}:${a.currency}`] || a.id : null; };
       s.cards = sum.cards.map((c, i) => {
         const [id, style, product] = CARD_STYLE[c.last4] || [c.id, 'navy', c.network];
-        return { id, name: c.name, product, network: c.network === 'MC' ? 'MASTERCARD' : c.network, accountId: accIdOf(c.accountId), number: masked(c.last4), holder: 'KAMAL MAMMADLI', expiry: c.expiry, cvv: '•••', style, frozen: c.status === 'blocked', primary: i === 0, virtual: c.virtual, limits: { purchase: 2000, atm: 1000, online: 1500 }, online: true, contactless: !c.virtual, abroad: true };
+        return { id, name: c.name, product, network: c.network === 'MC' ? 'MASTERCARD' : c.network, accountId: accIdOf(c.accountId), number: masked(c.last4), holder: 'KAMAL MAMMADLI', expiry: c.expiry, cvv: '•••', style, frozen: c.status === 'blocked', primary: i === 0, virtual: c.virtual, limits: c.limits || { purchase: 2000, atm: 1000, online: 1500 }, online: c.online ?? true, contactless: c.contactless ?? !c.virtual, abroad: c.abroad ?? true };
       });
     } else { s.accounts = []; s.cards = []; }
     s.transactions = (txs.data?.items || []).map((t) => ({ id: t.id, title: t.title, category: CAT[t.category] || 'transfers', amount: t.amount, date: t.date, cardId: t.accountId?.endsWith('9026') || t.currency === 'USD' ? 'card-usd' : 'card-debit', memo: t.memo, currency: t.currency }));
@@ -64,7 +66,7 @@ export function StoreProvider({ children }) {
     s.loading = summary.status === 'loading';
     s.loadError = summary.status === 'error';
     return s;
-  }, [local, summary.data, txs.data, contacts.data, bills.data, templates.data, summary.status]);
+  }, [local, summary.data, txs.data, contacts.data, bills.data, templates.data, deposits.data, summary.status]);
 
   const ref = useRef(state);
   ref.current = state;

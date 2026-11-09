@@ -42,7 +42,13 @@ Counts are per expected bank effect; a chain scenario counts once for each effec
 | P2 | Invest | `market.screen`, `market.quote`, `portfolio.get` | R0 | tested | in invest order 20/20 | not in holdout #1; dev set passes on Opus |
 | P2 | Invest order | `invest.order.prepare` | R3 | tested | 20/20 | not in holdout #1 |
 | P2 | FX (optional pack) | `fx.rates` | R0 | tested | - | switched on live from the console (`tests/console.test.ts`) |
-| P2 | Budget, statements, card limits | `budget.*`, `statement.get`, `card.limit.prepare` | R0-R3 | none | - | - |
+| P1 | International transfer | `transfer.intl.prepare` (IBAN as a vault token, BIC checked, fee 0.2% min 15) | R3 | tested | - (added after holdout 2; Bridge tests and live model run) | - |
+| P1 | Exchange | `fx.exchange.prepare` (bank buy/sell rate, amount on either side) | R3 | tested | - (added after holdout 2; Bridge tests and live model run) | - |
+| P2 | Card settings | `card.settings.prepare` (online, contactless, abroad), `card.limit.prepare` (purchase, cash, online) | R3 | tested | - (Bridge tests and live model run) | - |
+| P2 | New card | `card.new.prepare` (virtual at once, physical to a branch) | R2 | tested | - (Bridge tests and live model run) | - |
+| P2 | Deposits | `deposits.list`, `deposit.open.prepare` (bank rates and terms) | R0 / R3 | tested | - (Bridge tests and live model run) | - |
+| P2 | Loans | `loan.apply.prepare` (application only, bank prices and decides) | R2 | tested | - (Bridge tests and live model run) | - |
+| P2 | Budget, statements | `budget.*`, `statement.get` | R0 | none | - | - |
 
 Local (agent-side, not bank capabilities): `task_plan`.
 

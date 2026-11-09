@@ -205,3 +205,80 @@ describe('currency exchange between own accounts', () => {
     expect((await a.call('fx_exchange_prepare', { from_currency: 'AZN', to_currency: 'AZN', amount: 50, currency: 'AZN' })).isError).toBe(true);
   });
 });
+
+describe('card settings and limits', () => {
+  it('turns online payments off and changes a daily limit, and the app shows the new values', async () => {
+    const s = 'p1-cardctl'; const a = await st.mcp(s);
+    const card = (await a.call('cards_list')).body.items.find((c: any) => String(c.masked || c.last4 || '').endsWith('4417') || c.name === 'Caspia Debit').card;
+    const off = await a.call('card_settings_prepare', { card, setting: 'online_payments', enabled: false });
+    expect(off.isError, JSON.stringify(off.body)).toBe(false);
+    expect(off.body.details).toMatchObject({ setting: 'Online payments', new_state: 'Off' });
+    expect((await confirm(s, off)).body).toMatchObject({ status: 'committed', verified: true });
+    const lim = await a.call('card_limit_prepare', { card, limit: 'cash', amount: 500 });
+    expect(lim.body.details).toMatchObject({ limit: 'Daily cash withdrawal limit', old_limit: '1,000.00 AZN', amount: '500.00 AZN' });
+    expect((await confirm(s, lim)).body).toMatchObject({ status: 'committed', verified: true });
+    expect(await effects(s)).toEqual([
+      { type: 'card_setting', last4: '4417', setting: 'online_payments', enabled: 'no' },
+      { type: 'card_limit', last4: '4417', limit: 'cash', amount: 500 },
+    ]);
+  });
+  it('refuses limits outside the allowed range and contactless on a virtual card', async () => {
+    const s = 'p1-cardctl-bad'; const a = await st.mcp(s);
+    const cards = (await a.call('cards_list')).body.items;
+    const debit = cards.find((c: any) => c.name === 'Caspia Debit').card;
+    const virt = cards.find((c: any) => c.virtual === 'yes' || c.virtual === true).card;
+    expect((await a.call('card_limit_prepare', { card: debit, limit: 'purchase', amount: 999999 })).isError).toBe(true);
+    expect((await a.call('card_settings_prepare', { card: virt, setting: 'contactless', enabled: true })).isError).toBe(true);
+  });
+});
+
+describe('new card', () => {
+  it('issues a virtual card at once and orders a physical card to a branch', async () => {
+    const s = 'p1-newcard'; const a = await st.mcp(s);
+    const before = (await a.call('cards_list')).body.items.length;
+    const v = await a.call('card_new_prepare', { kind: 'virtual', currency: 'AZN' });
+    expect(v.isError, JSON.stringify(v.body)).toBe(false);
+    expect(v.body.details).toMatchObject({ card: 'Virtual AZN card', ready: 'Now' });
+    expect((await confirm(s, v)).body).toMatchObject({ status: 'committed', verified: true });
+    expect((await a.call('cards_list')).body.items.length).toBe(before + 1);
+    const quba = (await a.call('branches_list')).body.items.find((b: any) => /Quba/.test(b.name)).branch;
+    const p = await a.call('card_new_prepare', { kind: 'physical', currency: 'USD', branch: quba });
+    expect(p.body.details.pickup).toMatch(/Quba/);
+    expect((await confirm(s, p)).body.status).toBe('committed');
+    expect(await effects(s)).toEqual([{ type: 'card_issued', kind: 'virtual', currency: 'AZN' }, { type: 'card_issued', kind: 'physical', currency: 'USD' }]);
+    expect((await a.call('card_new_prepare', { kind: 'physical', currency: 'AZN' })).isError).toBe(true);
+  });
+});
+
+describe('term deposits', () => {
+  it('opens a deposit at the bank rate, and the bank lists it', async () => {
+    const s = 'p1-deposit'; const a = await st.mcp(s);
+    const before = (await a.call('deposits_list')).body;
+    expect(before.items.length).toBe(1);
+    expect(String(before.products_offered)).toMatch(/Smart Saver/);
+    const prep = await a.call('deposit_open_prepare', { product: 'smart_saver', term_months: 12, amount: 1000 });
+    expect(prep.isError, JSON.stringify(prep.body)).toBe(false);
+    expect(prep.body.details).toMatchObject({ product: 'Smart Saver', amount: '1,000.00 AZN', term: '12 months', rate: '9%', interest: '90.00 AZN' });
+    expect((await confirm(s, prep)).body).toMatchObject({ status: 'committed', verified: true });
+    expect((await a.call('deposits_list')).body.items.length).toBe(2);
+    expect(await effects(s)).toEqual([{ type: 'deposit_opened', product: 'Smart Saver', amount: 1000, currency: 'AZN', months: 12 }]);
+  });
+  it('refuses a term the product does not offer and an amount under the minimum', async () => {
+    const s = 'p1-deposit-bad'; const a = await st.mcp(s);
+    expect((await a.call('deposit_open_prepare', { product: 'dollar_deposit', term_months: 6, amount: 500 })).isError).toBe(true);
+    expect((await a.call('deposit_open_prepare', { product: 'flex_save', term_months: 3, amount: 10 })).isError).toBe(true);
+  });
+});
+
+describe('loan application', () => {
+  it('submits an application priced by the bank; nothing moves', async () => {
+    const s = 'p1-loan'; const a = await st.mcp(s);
+    const prep = await a.call('loan_apply_prepare', { amount: 5000, term_months: 24 });
+    expect(prep.isError, JSON.stringify(prep.body)).toBe(false);
+    expect(prep.body.details).toMatchObject({ amount: '5,000.00 AZN', term: '24 months', rate: '14.9%', decision: 'Pre-approved' });
+    expect(prep.body.details.monthly).toMatch(/^24\d\.\d\d AZN$/);
+    expect((await confirm(s, prep, false)).body).toMatchObject({ status: 'committed', verified: true });
+    expect(await effects(s)).toEqual([{ type: 'loan_application', amount: 5000, months: 24 }]);
+    expect((await a.call('loan_apply_prepare', { amount: 50000, term_months: 24 })).isError).toBe(true);
+  });
+});

@@ -11,6 +11,7 @@ const read = (set: string) => {
 };
 const dev = read('dev');
 const hold = read('holdout2') ?? read('holdout');
+const deployed = read('holdout2-deployed');
 const pc = (x: number) => (x * 100).toFixed(1) + '%';
 const ci = (w: number[]) => `${pc(w[0])}–${pc(w[1])}`;
 
@@ -68,6 +69,7 @@ const md = `# Reliability
 Every figure below comes from \`evals/runner.ts\` output (\`evals/results/summary-latest.json\`). Zero S1 in N runs only says the S1 rate is likely below the stated upper bound; it is not a guarantee.
 
 ${section(hold?.summary?.set === 'holdout2' ? 'Holdout 2 (reported numbers)' : 'Holdout 1 (contaminated after analysis; superseded by holdout 2)', hold)}
+${deployed ? section('Holdout 2 on the deployed configuration (after the fixes; no longer blind)', deployed) + '\nThis run used the same frozen set after three fixes and the standing-order start date were made from the failures of the blind run above, so it is not a blind measurement. It shows the configuration that is deployed now; the blind figure is the one above.\n' : ''}
 ${section('Dev set (used while tuning, not for claims)', dev)}
 ## Method notes
 

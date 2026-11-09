@@ -60,6 +60,65 @@ Every figure below comes from `evals/runner.ts` output (`evals/results/summary-l
 
 Failing scenarios (8): `h2-golden-20`, `h2-paraphrase-07`, `h2-paraphrase-10`, `h2-ambiguous_contact-06`, `h2-ambiguous_contact-05`, `h2-missing_info-10`, `h2-chains-03`, `h2-chains-09`.
 
+## Holdout 2 on the deployed configuration (after the fixes; no longer blind)
+
+**Offline evaluation on synthetic scenarios.** This measures how reliably the system carries out scripted requests against the demo bank. It does not measure demand or financial impact.
+
+- Set: `evals/holdout2/scenarios.yaml` (sha256 `fc353f56e8f7a13a…`), 112 scenarios × 5 repeats = 560 runs
+- Model `claude-haiku-5-5`, effort `low`, thinking `adaptive`, prompt `31da9c25d69d`, run 2026-11-09 07:23 UTC
+- Oracle: Core Bank effects journal and the bank confirmation screens shown; no model grading. The simulated customer approves only screens that match an expected effect and declines anything else (counted as S2).
+
+| Metric | Value |
+|---|---|
+| Task success | 556/560 = 99.3% (95% Wilson 98.2%–99.7%) |
+| S1 critical (unwanted real effect) | 0 (95% upper bound 0.7%) |
+| S2 high (wrong value reached the bank screen, declined) | 0 (0.0%) |
+| S3 medium (failed safely) | 4 (0.7%) |
+| S4 low (needless question or slow) | 1 |
+| Unauthorized commits | 0 |
+| pass^5 (all repeats passed) | 111/112 scenarios |
+| Turn latency p50 / p95 | 5.4 s / 10.0 s |
+| Task latency p50 / p95 | 6.0 s / 12.5 s |
+| Model cost per task (mean) | $0.0006 (total $0.35) |
+| Clarification rate | 21.8% |
+| Handoff rate | 1.8% |
+
+### By scenario group
+
+| Group | Runs | Passed | S1 | S2 | S3 |
+|---|---|---|---|---|---|
+| advice | 20 | 20 (100.0%) | 0 | 0 | 0 |
+| ambiguous_contact | 35 | 35 (100.0%) | 0 | 0 | 0 |
+| chains | 50 | 50 (100.0%) | 0 | 0 | 0 |
+| confirmation_denied | 30 | 30 (100.0%) | 0 | 0 | 0 |
+| golden | 125 | 125 (100.0%) | 0 | 0 | 0 |
+| injection | 35 | 35 (100.0%) | 0 | 0 | 0 |
+| investment | 35 | 35 (100.0%) | 0 | 0 | 0 |
+| limits_and_funds | 35 | 35 (100.0%) | 0 | 0 | 0 |
+| missing_info | 50 | 50 (100.0%) | 0 | 0 | 0 |
+| out_of_scope | 40 | 40 (100.0%) | 0 | 0 | 0 |
+| paraphrase | 75 | 71 (94.7%) | 0 | 0 | 4 |
+| typed_numbers | 30 | 30 (100.0%) | 0 | 0 | 0 |
+
+### By expected effect
+
+| Effect | Runs | Passed |
+|---|---|---|
+| bill_paid | 55 | 55 (100.0%) |
+| card_blocked | 25 | 25 (100.0%) |
+| card_replacement | 15 | 15 (100.0%) |
+| card_unblocked | 5 | 5 (100.0%) |
+| invest_order | 20 | 20 (100.0%) |
+| payment_request | 10 | 10 (100.0%) |
+| recurring_transfer | 20 | 20 (100.0%) |
+| subscription_cancelled | 15 | 15 (100.0%) |
+| topup | 30 | 30 (100.0%) |
+| transfer | 130 | 126 (96.9%) |
+
+Failing scenarios (1): `h2-paraphrase-08`.
+
+This run used the same frozen set after three fixes and the standing-order start date were made from the failures of the blind run above, so it is not a blind measurement. It shows the configuration that is deployed now; the blind figure is the one above.
+
 ## Dev set (used while tuning, not for claims)
 
 **Offline evaluation on synthetic scenarios.** This measures how reliably the system carries out scripted requests against the demo bank. It does not measure demand or financial impact.

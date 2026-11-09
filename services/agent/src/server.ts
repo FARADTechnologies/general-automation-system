@@ -4,9 +4,11 @@ import { createServer, type Server } from 'node:http';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { SessionManager, type RuntimeConfig } from './session.ts';
+import { Readable } from 'node:stream';
 import type { SttService } from './stt.ts';
+import { speakable, type TtsService } from './tts.ts';
 
-export function createAgentServer(cfg: RuntimeConfig & { webhookSecret: string; tryCommands?: string[]; stt?: SttService }) {
+export function createAgentServer(cfg: RuntimeConfig & { webhookSecret: string; tryCommands?: string[]; stt?: SttService; tts?: TtsService }) {
   const sessions = new SessionManager(cfg);
   const app = express();
   app.use('/hooks/bridge', express.raw({ type: '*/*', limit: '64kb' }));
@@ -30,7 +32,30 @@ export function createAgentServer(cfg: RuntimeConfig & { webhookSecret: string; 
     next();
   };
 
-  app.get('/api/agent/config', (_req, res) => { res.json({ tryCommands: cfg.tryCommands || [], model: cfg.model.model, stt: !!cfg.stt?.enabled }); });
+  app.get('/api/agent/config', (_req, res) => { res.json({ tryCommands: cfg.tryCommands || [], model: cfg.model.model, stt: !!cfg.stt?.enabled, tts: !!cfg.tts?.enabled }); });
+
+  // Spoken replies: only an assistant answer already in this session's transcript can be spoken,
+  // never text sent by the client. Rate- and size-limited per session so the speech quota holds.
+  const ttsHits = new Map<string, number[]>();
+  const ttsChars = new Map<string, number>();
+  app.get('/api/agent/sessions/:s/tts/:id', withSession, async (req, res) => {
+    const id = String(req.params.s);
+    if (!cfg.tts?.enabled) { res.status(503).json({ error: 'TTS_DISABLED' }); return; }
+    const entry = sessions.get(id).hub.state.transcript.find((t: { id: string; role: string }) => t.id === String(req.params.id) && t.role === 'agent');
+    if (!entry) { res.status(404).json({ error: 'NO_SUCH_ANSWER' }); return; }
+    const text = speakable(entry.text);
+    const recent = (ttsHits.get(id) || []).filter((t) => Date.now() - t < 60_000);
+    const used = ttsChars.get(id) || 0;
+    if (recent.length >= 12 || used + text.length > Number(process.env.TTS_SESSION_CHAR_CAP || 6000)) { res.status(429).json({ error: 'RATE_LIMIT' }); return; }
+    recent.push(Date.now()); ttsHits.set(id, recent); ttsChars.set(id, used + text.length);
+    try {
+      const r = await cfg.tts.stream(text);
+      res.writeHead(200, { 'content-type': 'audio/mpeg', 'cache-control': 'private, max-age=600', 'x-tts-model': r.model });
+      Readable.fromWeb(r.body as never).on('error', () => res.end()).pipe(res);
+    } catch {
+      res.status(502).json({ error: 'TTS_FAILED' });
+    }
+  });
 
   // Push-to-talk: one whole utterance in, its transcript out. The client then sends the text as a
   // normal voice turn, so it shows on every screen and passes the same ingress tokenizer and guards.

@@ -36,6 +36,8 @@ export interface ModelOptions {
   authToken?: string;
   /** Cache lifetime. A gateway that adds its own 1-hour breakpoints needs ours to match. */
   cacheTtl?: '5m' | '1h';
+  /** "fast": Opus fast mode (beta), same model with faster output at a higher price. */
+  speed?: 'standard' | 'fast';
 }
 
 export class AnthropicModel implements ModelClient {
@@ -88,7 +90,10 @@ export class AnthropicModel implements ModelClient {
         thinking: { type: this.opts.thinking },
         output_config: { effort: this.opts.effort },
       };
-      if (this.opts.fallback) { params.betas = ['server-side-fallback-2026-07-01']; params.fallbacks = 'default'; }
+      const betas: string[] = [];
+      if (this.opts.fallback) { betas.push('server-side-fallback-2026-07-01'); params.fallbacks = 'default'; }
+      if (this.opts.speed === 'fast') { betas.push('fast-mode-2026-02-01'); params.speed = 'fast'; }
+      if (betas.length) params.betas = betas;
       try {
         message = (await this.client.beta.messages.create(params as never, { signal })) as Anthropic.Beta.Messages.BetaMessage;
       } catch (e) {
@@ -113,7 +118,8 @@ export class AnthropicModel implements ModelClient {
     if (!message) throw new Error('model request was rejected after adapting cache settings');
     const latencyMs = Date.now() - t0;
     if (process.env.MODEL_DEBUG === '1') console.warn(`model call ${this.opts.model} ${latencyMs} ms usage=${JSON.stringify({ in: message.usage.input_tokens, out: message.usage.output_tokens, cr: message.usage.cache_read_input_tokens, cw: message.usage.cache_creation_input_tokens })} stop=${message.stop_reason}`);
-    return { message, latencyMs, costUsd: costOf(message.model || this.opts.model, message.usage as never) };
+    const fast = (message.usage as { speed?: string }).speed === 'fast';
+    return { message, latencyMs, costUsd: costOf(message.model || this.opts.model, message.usage as never) * (fast ? 2 : 1) };
   }
 }
 

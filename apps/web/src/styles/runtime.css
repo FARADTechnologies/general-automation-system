@@ -24,6 +24,8 @@
 .agent-dot.s-error, .agent-dot.s-paused { background: var(--coral); }
 .agent-offline { margin-left: auto; color: var(--coral); }
 .agent-status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-voice { margin-left: auto; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; border: 1px solid var(--line, rgba(0,0,0,.12)); background: transparent; color: var(--muted); cursor: pointer; }
+.agent-voice.on { color: var(--sea, #1a7a63); border-color: currentColor; }
 .agent-panel { position: relative; background: var(--surface); border-radius: 18px; padding: 12px 14px; box-shadow: var(--shadow), inset 0 0 0 1px var(--line); display: flex; flex-direction: column; gap: 8px; max-height: 38vh; overflow-y: auto; animation: up .2s ease; }
 .agent-close { position: absolute; top: 8px; right: 8px; color: var(--muted); }
 .agent-said { margin: 0; font-size: 14px; padding-right: 22px; }

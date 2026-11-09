@@ -1,11 +1,12 @@
 // Agent dock: push-to-talk and text input, agent status, live plan, last exchange.
 import React, { useEffect, useRef, useState } from 'react';
-import { Mic, SendHorizontal, Square, Sparkles, Check, X, Loader2, Circle } from 'lucide-react';
+import { Mic, SendHorizontal, Square, Sparkles, Check, X, Loader2, Circle, Volume2, VolumeX } from 'lucide-react';
 import { hub, useUi, useConnected } from '../../runtime/hub.ts';
 import { speechSupported, startListening } from '../../runtime/voice.ts';
 import { useMode } from '../App.jsx';
 import { useLocation } from 'react-router-dom';
 import { RichText } from '../../runtime/RichText';
+import { speakAnswer, unlockAudio, stopSpeaking, voiceRepliesOn, setVoiceReplies } from '../../runtime/speech.ts';
 
 const STATUS_TEXT: Record<string, string> = {
   idle: 'Ask me to do something',
@@ -34,6 +35,8 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
   const [tries, setTries] = useState<string[]>(tryCache || []);
   const [open, setOpen] = useState(false);
   const stopRef = useRef<() => void>();
+  const [voiceOn, setVoiceOn] = useState(voiceRepliesOn());
+  const spokenRef = useRef<string | null | undefined>(undefined);
   const busy = !['idle', 'paused', 'error', 'handoff'].includes(status);
 
   useEffect(() => {
@@ -44,12 +47,14 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
   const send = (t: string) => {
     const v = t.trim();
     if (!v || busy) return;
+    unlockAudio(); stopSpeaking();
     hub.input(v, 'text');
     setText('');
     setOpen(true);
   };
 
   const micDown = () => {
+    unlockAudio(); stopSpeaking();
     if (busy || listening) return;
     setListening(true); setPartial('');
     stopRef.current = startListening({
@@ -64,6 +69,16 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
   const lastUser = [...transcript].reverse().find((t) => t.role === 'user');
   const lastAgent = [...transcript].reverse().find((t) => t.role === 'agent');
   const showAgentReply = lastAgent && lastUser && lastAgent.at >= lastUser.at;
+  // Speak each new answer once, on the phone only; answers that were already there when the page
+  // opened are not read out.
+  useEffect(() => {
+    if (spokenRef.current === undefined) { spokenRef.current = lastAgent?.id ?? null; return; }
+    if (!lastAgent || lastAgent.id === spokenRef.current || !showAgentReply || mode !== 'phone') return;
+    spokenRef.current = lastAgent.id;
+    void speakAnswer(hub.session, lastAgent.id, lastAgent.text);
+  }, [lastAgent?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggleVoice = () => { const on = !voiceOn; setVoiceOn(on); setVoiceReplies(on); if (on) unlockAudio(); };
+
   const statusText = listening ? 'Listening…' : (note && (status === 'paused' || status === 'error') ? note : STATUS_TEXT[status] || status);
 
   return (
@@ -97,6 +112,12 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
         <span className={'agent-dot s-' + (listening ? 'listening' : status)} />
         <span className="agent-status-text">{partial || statusText}</span>
         {!connected && <span className="agent-offline">offline</span>}
+        {mode === 'phone' && (
+          <button type="button" className={'agent-voice' + (voiceOn ? ' on' : '')} onClick={toggleVoice} data-nav-id="agent-voice"
+            aria-pressed={voiceOn} aria-label={voiceOn ? 'Spoken replies on' : 'Spoken replies off'} title={voiceOn ? 'Spoken replies on' : 'Spoken replies off'}>
+            {voiceOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          </button>
+        )}
       </div>
 
       <form className="agent-bar" onSubmit={(e) => { e.preventDefault(); send(text); }}>

@@ -28,6 +28,7 @@ const RESUME = arg('resume', '');
 const INFRA = /(5\d\d|429)|ECONN|fetch failed|timed? ?out|overloaded|Connection error|network|Tunnel/i;
 const MODEL = arg('model', process.env.AGENT_MODEL || 'claude-sonnet-5-5');
 const EFFORT = arg('effort', process.env.AGENT_EFFORT || 'medium') as 'low' | 'medium' | 'high';
+const SPEED = arg('speed', process.env.AGENT_SPEED || 'standard');
 const THINKING = arg('thinking', process.env.AGENT_THINKING || 'between_tools') as 'between_tools' | 'adaptive';
 
 type Effect = Record<string, string | number>;
@@ -88,12 +89,12 @@ async function main() {
   const model = PROVIDER === 'gemini'
     ? new GeminiModel({ model: arg('model', process.env.GEMINI_MODEL || 'gemini-3.6-flash'), fallbacks: (process.env.GEMINI_FALLBACKS || 'gemini-3-flash-preview,gemini-3.5-flash-lite,gemini-2.5-flash').split(','), apiKey: process.env.GEMINI_API_KEY || '', thinkingLevel: (arg('thinking', 'low') as 'low') })
     : PROVIDER === 'anthropic'
-      ? new AnthropicModel({ model: MODEL, effort: EFFORT, thinking: THINKING, fallback: process.env.AGENT_FALLBACK !== '0', baseURL: process.env.ANTHROPIC_BASE_URL, authToken: process.env.ANTHROPIC_AUTH_TOKEN, cacheTtl: process.env.AGENT_CACHE_TTL === '1h' ? '1h' : '5m' })
+      ? new AnthropicModel({ model: MODEL, effort: EFFORT, thinking: THINKING, fallback: process.env.AGENT_FALLBACK !== '0', baseURL: process.env.ANTHROPIC_BASE_URL, authToken: process.env.ANTHROPIC_AUTH_TOKEN, cacheTtl: process.env.AGENT_CACHE_TTL === '1h' ? '1h' : '5m', speed: SPEED === 'fast' ? 'fast' : 'standard' })
       : openAICompatFromEnv(PROVIDER, { ...process.env, ...(process.argv.includes('--model') ? { MISTRAL_MODEL: arg('model', ''), GROQ_MODEL: arg('model', ''), OPENAI_COMPAT_MODEL: arg('model', '') } : {}) });
   const st = await startFullStack(model, { stepMs: 5 });
   const promptHash = createHash('sha256').update(CORE_PROMPT + readFileSync(resolve(ROOT, 'domains/bank/prompt.md'), 'utf8')).digest('hex').slice(0, 12);
   const started = new Date().toISOString();
-  console.log(`eval set=${SET} scenarios=${scenarios.length} repeats=${REPEATS} model=${model.model} effort=${EFFORT} thinking=${THINKING} prompt=${promptHash}`);
+  console.log(`eval set=${SET} scenarios=${scenarios.length} repeats=${REPEATS} model=${model.model} effort=${EFFORT} thinking=${THINKING} speed=${SPEED} prompt=${promptHash}`);
 
   const allJobs = scenarios.flatMap((s) => Array.from({ length: REPEATS }, (_, r) => ({ s, r })));
   // A resume source is a finished results file or the partial log a run writes as it goes.
@@ -191,7 +192,7 @@ async function main() {
   });
   const summary = {
     label: 'Offline evaluation on synthetic scenarios',
-    set: SET, scenarios: byScenario.size, repeats: REPEATS, runs: n, model: model.model, effort: EFFORT, thinking: THINKING, prompt_hash: promptHash,
+    set: SET, scenarios: byScenario.size, repeats: REPEATS, runs: n, model: model.model, effort: EFFORT, thinking: THINKING, ...(SPEED !== 'standard' ? { speed: SPEED } : {}), prompt_hash: promptHash,
     ...(prior ? { resumed_from: prior.summary.started, reruns_after_infrastructure_errors: jobs.length } : {}),
     ...(n < allJobs.length ? { incomplete: { planned_runs: allJobs.length, completed_runs: n, reason: 'the remaining runs ended in infrastructure errors (model gateway unavailable) and were not re-run' } } : {}),
     started: prior ? prior.summary.started : started, finished: new Date().toISOString(), scenario_file_sha256: createHash('sha256').update(raw).digest('hex'),

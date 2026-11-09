@@ -9,6 +9,7 @@ import { openAICompatFromEnv } from './model-openai.ts';
 import { FallbackModel } from './model-fallback.ts';
 import { createAgentServer } from './server.ts';
 import { sttFromEnv } from './stt.ts';
+import { ttsFromEnv } from './tts.ts';
 
 loadEnv();
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -17,6 +18,7 @@ const screens = JSON.parse(readFileSync(resolve(root, 'domains/bank/screens.json
 const tryCommands = JSON.parse(readFileSync(resolve(root, 'domains/bank/try-commands.json'), 'utf8')) as string[];
 const sttHints = JSON.parse(readFileSync(resolve(root, 'domains/bank/stt-hints.json'), 'utf8')) as string[];
 const stt = sttFromEnv(process.env, sttHints);
+const tts = ttsFromEnv(process.env);
 
 // AGENT_PROVIDER selects the model behind the same interface: anthropic (default), gemini, or an
 // OpenAI-compatible provider (mistral, groq, openai-compat).
@@ -31,6 +33,7 @@ const primary = provider !== 'anthropic' && provider !== 'gemini' ? openAICompat
   baseURL: process.env.ANTHROPIC_BASE_URL,
   authToken: process.env.ANTHROPIC_AUTH_TOKEN,
   cacheTtl: process.env.AGENT_CACHE_TTL === '1h' ? '1h' : '5m',
+  speed: process.env.AGENT_SPEED === 'fast' ? 'fast' : 'standard',
 }, process.env.ANTHROPIC_API_KEY);
 
 // Optional second provider, used only while the first one is unreachable (MODEL_FALLBACK=gemini).
@@ -55,6 +58,7 @@ const { server } = createAgentServer({
   screens,
   tryCommands,
   stt,
+  tts,
 });
 const port = Number(process.env.AGENT_PORT || 4300);
-server.listen(port, '127.0.0.1', () => console.log(`agent listening on ${port} (model ${model.model}; speech-to-text ${stt.enabled ? stt.providers.join(' then ') : 'off, browser speech only'})`));
+server.listen(port, '127.0.0.1', () => console.log(`agent listening on ${port} (model ${model.model}; speech-to-text ${stt.enabled ? stt.providers.join(' then ') : 'off, browser speech only'}; spoken replies ${tts.enabled ? 'on' : 'off'})`));

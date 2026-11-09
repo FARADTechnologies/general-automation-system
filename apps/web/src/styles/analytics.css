@@ -12,7 +12,61 @@
 .an-val small { color: var(--muted); font-size: 12px; }
 .an-rank { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); font-weight: 700; flex: none; }
 .an-list .li { width: 100%; min-height: 60px; }
-.an-cats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.an-cats li { display: grid; grid-template-columns: 110px 1fr auto; gap: 10px; align-items: center; font-size: 15px; }
-.an-bar { height: 10px; border-radius: 5px; background: var(--surface-2); overflow: hidden; }
-.an-bar i { display: block; height: 100%; border-radius: 5px; background: var(--sea); min-width: 2px; }
+/* ---------- spending by category: donut + legend ----------
+   Categorical palette in ring order. Validated (OKLab, Machado CVD sim) for the full ring including
+   the wrap pair: worst adjacent CVD dE 11.7 light / 12.6 dark, normal vision 19.8 / 19.0, against
+   the app's light (#ffffff) and dark (#12232a) surfaces. Slot 5 is under 3:1 on white, so every
+   arc also has a written row in the legend below it. */
+:root {
+  --an-cat-1: #0f8a6a;  /* Caspian green */
+  --an-cat-2: #2f6fd0;  /* blue */
+  --an-cat-3: #e0573a;  /* coral */
+  --an-cat-4: #1f97b0;  /* cyan */
+  --an-cat-5: #d9861c;  /* saffron */
+  --an-cat-6: #cf4c8a;  /* rose */
+  --an-cat-7: #7f8f1c;  /* olive */
+  --an-cat-8: #7b5ce0;  /* violet */
+  --an-cat-rest: #a3b1ad;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --an-cat-1: #1f9c7a; --an-cat-2: #4f86e0; --an-cat-3: #e0674a; --an-cat-4: #2aa3bd;
+    --an-cat-5: #c0821a; --an-cat-6: #d8609a; --an-cat-7: #8a9a26; --an-cat-8: #9079ea; --an-cat-rest: #5b716b;
+  }
+}
+:root[data-theme="dark"], .app.dark {
+  --an-cat-1: #1f9c7a; --an-cat-2: #4f86e0; --an-cat-3: #e0674a; --an-cat-4: #2aa3bd;
+  --an-cat-5: #c0821a; --an-cat-6: #d8609a; --an-cat-7: #8a9a26; --an-cat-8: #9079ea; --an-cat-rest: #5b716b;
+}
+
+.an-donut { position: relative; width: 184px; height: 184px; margin: 0 auto; }
+.an-donut-svg { display: block; width: 100%; height: 100%; overflow: visible; animation: an-donut-in .7s cubic-bezier(.22, 1, .36, 1) both; }
+.an-donut-sweep { stroke-dasharray: 100 100; stroke-dashoffset: 0; animation: an-sweep .9s cubic-bezier(.65, 0, .35, 1) both; }
+.an-arc { stroke-width: 22; cursor: pointer; transition: opacity .2s ease, stroke-width .2s ease; }
+.an-arc.off { opacity: .28; }
+.an-arc.on { stroke-width: 28; }
+.an-donut-centre { position: absolute; inset: 34px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: none; gap: 1px; }
+.an-donut-label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; color: var(--muted); max-width: 100%; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.an-donut-value { font-family: var(--font-display); font-size: 22px; font-weight: 700; line-height: 1.1; color: var(--text); letter-spacing: -0.01em; }
+.an-donut-sub { font-size: 12px; font-weight: 600; color: var(--muted); }
+@keyframes an-sweep { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@keyframes an-donut-in { from { opacity: 0; transform: rotate(-24deg) scale(.94); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .an-donut-svg, .an-donut-sweep { animation: none; }
+  .an-arc { transition: none; }
+}
+
+/* One shared column grid for every row (subgrid), so the bars and amounts line up. */
+.an-cats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 10px minmax(0, 1fr) 56px auto; column-gap: 10px; row-gap: 14px; }
+.an-cats li { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; font-size: 15px; position: relative; isolation: isolate; cursor: pointer; transition: opacity .15s ease; }
+@supports not (grid-template-columns: subgrid) {
+  .an-cats li { grid-template-columns: 10px minmax(0, 1fr) 56px 104px; column-gap: 10px; }
+}
+/* highlight drawn behind the row so the shared columns keep their exact widths */
+.an-cats li::before { content: ''; position: absolute; inset: -6px -8px; border-radius: 12px; background: var(--surface-2); opacity: 0; z-index: -1; transition: opacity .15s ease; }
+.an-cats li.on::before { opacity: 1; }
+.an-cats.has-active li:not(.on) { opacity: .55; }
+.an-dot { width: 10px; height: 10px; border-radius: 3px; background: var(--an-c, var(--sea)); }
+.an-cat { line-height: 1.25; }
+.an-bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.an-bar i { display: block; height: 100%; border-radius: 3px; background: var(--an-c, var(--sea)); min-width: 2px; }

@@ -1,6 +1,6 @@
 # Demo script (live segment, 60–75 s)
 
-Every command below is in `evals/demo/scenarios.yaml` and must pass 20 consecutive runs before freeze:
+Every command below is in `evals/demo/scenarios.yaml` and must pass 20 consecutive runs before freeze. Last run: 2026-11-09, Claude Opus 5.5 through the event gateway, **80/80 passed** (each of the 4 commands 20/20), no S1 or S2. Whole-turn time including both bank confirmations: p50 13.3 s, p95 28.7 s, with four sessions running at once.
 
 ```bash
 npx tsx evals/runner.ts --set demo --repeats 20 --concurrency 4

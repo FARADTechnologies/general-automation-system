@@ -149,7 +149,7 @@ export default function Console() {
             <thead><tr><th>#</th><th>Time</th><th>Trace</th><th>Session</th><th>Actor</th><th>Event</th><th>Capability</th><th>Decision</th></tr></thead>
             <tbody>{audit.map((r) => (
               <tr key={r.seq} className={r.decision === 'held' || r.decision === 'rejected' ? 'warn' : ''}>
-                <td>{r.seq}</td><td>{r.ts.slice(11, 19)}</td><td><code>{r.trace_id.slice(0, 10)}</code></td><td>{r.session}</td><td>{r.actor}</td><td>{r.event}</td><td>{r.capability || ''}</td><td>{r.decision || ''}</td>
+                <td>{r.seq}</td><td>{new Date(r.ts).toLocaleTimeString([], { hour12: false })}</td><td><code>{r.trace_id.slice(0, 10)}</code></td><td>{r.session}</td><td>{r.actor}</td><td>{r.event}</td><td>{r.capability || ''}</td><td>{r.decision || ''}</td>
               </tr>
             ))}</tbody>
           </table>

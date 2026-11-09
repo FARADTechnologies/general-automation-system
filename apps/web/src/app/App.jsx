@@ -67,6 +67,11 @@ export function Shell() {
   const root = useRef(null);
   const showTabs = TAB_ROOTS.includes(loc.pathname);
   const onInk = loc.pathname === '/';
+  // The phone opens in the light theme even when the device is in dark mode; the customer can
+  // still switch to dark in Settings. The projector mirror leaves the stage's own theme alone.
+  useEffect(() => {
+    if (mode === 'phone') document.documentElement.dataset.theme = state.settings.dark ? 'dark' : 'light';
+  }, [mode, state.settings.dark]);
 
   return (
     <div ref={root} className={'app' + (state.settings.dark ? ' dark' : '') + (onInk ? ' on-ink' : '') + (mode === 'mirror' ? ' mirror' : '')}>

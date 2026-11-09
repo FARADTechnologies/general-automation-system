@@ -15,8 +15,8 @@ interface View {
 }
 
 let registered = '';
-export async function registerDevice(session: string) {
-  if (registered === session) return;
+export async function registerDevice(session: string, force = false) {
+  if (registered === session && !force) return;
   registered = session;
   await fetch('/bridge/device/register', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ session }), credentials: 'same-origin' }).catch(() => { registered = ''; });
 }
@@ -49,8 +49,15 @@ function ConfirmScreen({ id }: { id: string }) {
     let alive = true;
     (async () => {
       await registerDevice(hub.session);
-      const r = await fetch(`/bridge/confirm/${encodeURIComponent(id)}`, { credentials: 'same-origin' });
-      const body = await r.json().catch(() => ({}));
+      let r = await fetch(`/bridge/confirm/${encodeURIComponent(id)}`, { credentials: 'same-origin' });
+      let body = await r.json().catch(() => ({}));
+      // The bank side may have restarted since this page registered the phone (for example after
+      // a deployment). Register this phone for the session again and retry once, as a reload would.
+      if (!r.ok && body.code !== 'EXPIRED') {
+        await registerDevice(hub.session, true);
+        r = await fetch(`/bridge/confirm/${encodeURIComponent(id)}`, { credentials: 'same-origin' });
+        body = await r.json().catch(() => ({}));
+      }
       if (!alive) return;
       if (!r.ok) { setErr(body.code === 'EXPIRED' ? 'This request expired.' : 'This confirmation is not available on this device.'); return; }
       setView(body);

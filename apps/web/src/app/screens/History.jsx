@@ -153,7 +153,6 @@ export function Analytics() {
     return { label: i === 0 ? 'This wk' : `-${i}w`, v };
   }).reverse();
   const maxW = Math.max(...weeks.map((w) => w.v), 1);
-  const cashback = state.transactions.filter((t) => t.cashback && new Date(t.date).getTime() > since).reduce((s, t) => s + t.cashback, 0);
 
   return (
     <main className="screen no-tabs screen-enter">
@@ -173,10 +172,6 @@ export function Analytics() {
             </div>
           ))}
         </div>
-      </div>
-      <div className="grid2">
-        <div className="block" style={{ gap: 4 }}><span className="eyebrow">Cashback earned</span><strong className="num pos" style={{ fontSize: 18 }}>+{money(cashback)}</strong></div>
-        <div className="block" style={{ gap: 4 }}><span className="eyebrow">Daily average</span><strong className="num" style={{ fontSize: 18 }}>{money(total / period)}</strong></div>
       </div>
       <ComparePeriods period={`${period}d`} />
       <TopExpenses period={`${period}d`} />

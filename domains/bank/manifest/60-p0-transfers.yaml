@@ -593,3 +593,80 @@ ui:
     - { target: abroad-country, display: country }
     - { target: abroad-amount, display: amount }
   submit: abroad-continue
+---
+id: fx.exchange.prepare
+title: Prepare a currency exchange between own accounts
+llm_description: >
+  Exchange money between the customer's own AZN and USD current accounts at the bank's rate.
+  from_currency is what the customer gives, to_currency what they receive. amount is the figure the
+  customer said and currency is the currency of that figure, which can be either side ("change 200
+  manat to dollars" is 200 AZN from AZN; "buy 100 dollars" is 100 USD from AZN). The bank works out
+  the other side and the rate; never compute them. Nothing moves until the customer confirms.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    from_currency: { type: string, enum: [AZN, USD] }
+    to_currency: { type: string, enum: [AZN, USD] }
+    amount: { type: number }
+    currency: { type: string, enum: [AZN, USD], description: "Currency of the amount the customer said" }
+  required: [from_currency, to_currency, amount, currency]
+  additionalProperties: false
+intent_terms: [exchange, convert, change, buy, sell, swap]
+critical_args:
+  amount: { provenance: [user_stated] }
+lookups:
+  source:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { ccy: "{input.from_currency}", acct_typ_cd: CUR }
+  target:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { ccy: "{input.to_currency}", acct_typ_cd: CUR }
+policy:
+  limit_group: transfer
+  amount: "{input.amount}"
+  currency: "{input.currency}"
+request:
+  method: POST
+  path: /internal/v3/pmt/drft
+  body:
+    cust_id: "{ctx.cust_id}"
+    src_acct_no: "{lookup.source.acct_no}"
+    dst_typ_cd: ACCT
+    dst_ref: "{lookup.target.acct_no}"
+    fx_flg: "Y"
+    amt_minor: "{input.amount|minor}"
+    amt_ccy: "{input.currency}"
+    ccy: "{input.from_currency}"
+    chnl_cd: AGT
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: drft_id
+  pay: { from: amt_minor, transform: major }
+  get: { from: dst_amt_minor, transform: major }
+  rate: fx_rt
+commit: { method: POST, path: "/internal/v3/pmt/{result.ref}/post" }
+cancel: { method: POST, path: "/internal/v3/pmt/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/pmt/{result.ref}
+  expect: { sts_cd: POSTED }
+confirm:
+  level: biometric
+  title: Currency exchange
+  display:
+    - { key: you_pay, label: You pay, value: "{result.pay|money:input.from_currency}" }
+    - { key: you_get, label: You get, value: "{result.get|money:input.to_currency}" }
+    - { key: rate, label: Rate, value: "1 USD = {result.rate} AZN" }
+    - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
+    - { key: destination, label: To, value: "{lookup.target.acct_nm} •••• {lookup.target.acct_no|last4}" }
+ui:
+  say:
+    start: "I'm preparing the exchange. You pay {you_pay} and get {you_get}."
+    done: "Done. {you_get} is now in your {destination}."
+  route: /app/exchange

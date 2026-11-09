@@ -4,7 +4,7 @@ import { seedCustomer, type CustomerData } from './seed.ts';
 import { marketData, seedPortfolio, type Holding } from './market.ts';
 
 export interface Drft {
-  drft_id: string; cust_id: string; dst_typ_cd: 'BNF' | 'PAN' | 'ACCT' | 'BLL' | 'TOPUP' | 'MSISDN' | 'IBAN'; dst_bic?: string; dst_cntry?: string; purp_cd?: string;
+  drft_id: string; cust_id: string; dst_typ_cd: 'BNF' | 'PAN' | 'ACCT' | 'BLL' | 'TOPUP' | 'MSISDN' | 'IBAN'; dst_bic?: string; dst_cntry?: string; purp_cd?: string; dst_amt_minor?: number; dst_ccy?: string; fx_rt?: number;
   src_acct_no: string; dst_ref: string; dst_nm: string; amt_minor: number; fee_minor: number; ccy: string;
   chnl_cd: string; idmp_key: string; sts_cd: 'DRFT' | 'POSTED' | 'CNCL' | 'RJCT'; crt_ts: string; pst_ts: string | null; txn_ref: string | null; rsn_cd: string | null;
 }
@@ -116,8 +116,9 @@ export class CoreBank {
     const dup = [...c.drfts.values()].find((d) => d.idmp_key === idmp);
     if (dup) return dup;
 
-    const amt = Number(body.amt_minor);
+    let amt = Number(body.amt_minor);
     if (!Number.isInteger(amt) || amt <= 0) throw new BankError(400, 'AMT_INV', 'amt_minor must be a positive integer');
+    let fx: { dst_amt_minor: number; dst_ccy: string; fx_rt: number } | null = null;
     const ccy = String(body.ccy);
     const src = c.data.accts.find((a) => a.acct_no === body.src_acct_no);
     if (!src) throw new BankError(404, 'ACCT_NF', 'source account not found');
@@ -153,7 +154,24 @@ export class CoreBank {
         const a = c.data.accts.find((x) => x.acct_no === ref);
         if (!a) throw new BankError(404, 'ACCT_NF', 'destination account not found');
         if (a.acct_no === src.acct_no) throw new BankError(422, 'SAME_ACCT', 'source and destination are the same');
-        if (a.ccy !== src.ccy) throw new BankError(422, 'CCY_MISMATCH', 'cross-currency transfer not supported on this endpoint');
+        if (a.ccy !== src.ccy) {
+          // currency exchange between own accounts, at the bank's own rate (fx_flg Y). The amount may
+          // be given in either currency (amt_ccy); the bank works out the other side.
+          if (body.fx_flg !== 'Y') throw new BankError(422, 'CCY_MISMATCH', 'cross-currency transfer needs fx_flg');
+          const foreign = src.ccy === 'AZN' ? a.ccy : a.ccy === 'AZN' ? src.ccy : '';
+          const rate = c.data.fx.find((r) => r.ccy === foreign);
+          if (!rate) throw new BankError(422, 'FX_NA', 'exchange not available for this pair');
+          const amtCcy = String(body.amt_ccy || src.ccy);
+          if (amtCcy !== src.ccy && amtCcy !== a.ccy) throw new BankError(400, 'AMT_CCY_INV', 'amount currency must be one side of the exchange');
+          const rt = src.ccy === 'AZN' ? rate.sell : rate.buy; // AZN per unit of the foreign currency
+          const toAzn = (m: number) => Math.round(m * rt), fromAzn = (m: number) => Math.round(m / rt);
+          let srcAmt: number, dstAmt: number;
+          if (src.ccy === 'AZN') { if (amtCcy === 'AZN') { srcAmt = amt; dstAmt = fromAzn(amt); } else { dstAmt = amt; srcAmt = toAzn(amt); } }
+          else { if (amtCcy === 'AZN') { dstAmt = amt; srcAmt = fromAzn(amt); } else { srcAmt = amt; dstAmt = toAzn(amt); } }
+          if (srcAmt <= 0 || dstAmt <= 0) throw new BankError(400, 'AMT_INV', 'amount too small to exchange');
+          amt = srcAmt;
+          fx = { dst_amt_minor: dstAmt, dst_ccy: a.ccy, fx_rt: rt };
+        }
         dst_nm = a.acct_nm;
         break;
       }
@@ -191,6 +209,7 @@ export class CoreBank {
 
     const d: Drft = {
       drft_id: id('DR'), cust_id: c.cust_id, dst_typ_cd: typ, src_acct_no: src.acct_no, dst_ref: typ === 'IBAN' ? ref.replace(/\s+/g, '').toUpperCase() : ref, dst_nm,
+      ...(fx || {}),
       ...(typ === 'IBAN' ? { dst_bic: String(body.dst_bic).replace(/\s+/g, '').toUpperCase(), dst_cntry: String(body.dst_cntry || '').slice(0, 40), purp_cd: String(body.purp_cd || '').slice(0, 40) } : {}),
       amt_minor: amt, fee_minor: fee, ccy, chnl_cd: String(body.chnl_cd || 'UNK'), idmp_key: idmp,
       sts_cd: 'DRFT', crt_ts: new Date().toISOString(), pst_ts: null, txn_ref: null, rsn_cd: null,
@@ -226,7 +245,11 @@ export class CoreBank {
     src.bal_minor -= d.amt_minor + d.fee_minor;
     let ctg = 'P2P';
     let mrch = `Transfer to ${d.dst_nm}`;
-    if (d.dst_typ_cd === 'ACCT') { const a = c.data.accts.find((x) => x.acct_no === d.dst_ref)!; a.bal_minor += d.amt_minor; ctg = 'OWN'; mrch = `To ${a.acct_nm}`; }
+    if (d.dst_typ_cd === 'ACCT') {
+      const a = c.data.accts.find((x) => x.acct_no === d.dst_ref)!;
+      a.bal_minor += d.dst_amt_minor ?? d.amt_minor; ctg = 'OWN'; mrch = d.fx_rt ? `Exchange to ${a.ccy}` : `To ${a.acct_nm}`;
+      if (d.fx_rt) c.data.txns.unshift({ txn_ref: id('TXN'), acct_no: a.acct_no, bkg_dt: new Date().toISOString(), amt_minor: d.dst_amt_minor!, ccy: a.ccy, mrch_nm: `Exchange from ${d.ccy}`, txn_desc: '', ctgry_cd: 'OWN', crd_pan: null, cntrpty_nm: null });
+    }
     if (d.dst_typ_cd === 'BNF') { const b = c.data.bnfcry.find((x) => x.bnfcry_ref === d.dst_ref); if (b && !b.frst_pmt_dt) b.frst_pmt_dt = new Date().toISOString(); }
     if (d.dst_typ_cd === 'BLL') { ctg = 'UTIL'; mrch = d.dst_nm; }
     if (d.dst_typ_cd === 'TOPUP') { ctg = 'MOBL'; mrch = `${d.dst_nm} top-up`; }
@@ -240,6 +263,7 @@ export class CoreBank {
     const amount = d.amt_minor / 100;
     if (d.dst_typ_cd === 'BLL') c.journal.push({ type: 'bill_paid', biller: d.dst_nm });
     else if (d.dst_typ_cd === 'TOPUP') c.journal.push({ type: 'topup', operator: d.dst_nm, amount });
+    else if (d.dst_typ_cd === 'ACCT' && d.fx_rt) c.journal.push({ type: 'fx_exchange', from: d.ccy, to: d.dst_ccy!, amount, received: d.dst_amt_minor! / 100 });
     else if (d.dst_typ_cd === 'ACCT') c.journal.push({ type: 'transfer', to: 'own:' + d.dst_nm, amount, currency: d.ccy });
     else if (d.dst_typ_cd === 'PAN') c.journal.push({ type: 'transfer', to: c.data.bnfcry.some((b) => b.dst_pan === d.dst_ref) ? d.dst_nm : 'card:' + d.dst_ref.slice(-4), amount, currency: d.ccy });
     else c.journal.push({ type: 'transfer', to: d.dst_nm, amount, currency: d.ccy });

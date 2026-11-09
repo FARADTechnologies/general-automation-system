@@ -187,3 +187,21 @@ describe('P1 capabilities', () => {
     expect(r.items[0].text).toMatch(/0\.5%/);
   });
 });
+
+describe('currency exchange between own accounts', () => {
+  it('buys dollars with manat at the bank rate, the bank works out the other side', async () => {
+    const s = 'p0-fx'; const a = await st.mcp(s);
+    const prep = await a.call('fx_exchange_prepare', { from_currency: 'AZN', to_currency: 'USD', amount: 100, currency: 'USD' });
+    expect(prep.isError, JSON.stringify(prep.body)).toBe(false);
+    expect(prep.body.details).toMatchObject({ you_pay: '170.35 AZN', you_get: '100.00 USD', rate: '1 USD = 1.7035 AZN' });
+    const r = await confirm(s, prep);
+    expect(r.body).toMatchObject({ status: 'committed', verified: true });
+    expect(await effects(s)).toEqual([{ type: 'fx_exchange', from: 'AZN', to: 'USD', amount: 170.35, received: 100 }]);
+  });
+  it('sells dollars for manat, and refuses an exchange within one currency', async () => {
+    const s = 'p0-fx2'; const a = await st.mcp(s);
+    const prep = await a.call('fx_exchange_prepare', { from_currency: 'USD', to_currency: 'AZN', amount: 50, currency: 'USD' });
+    expect(prep.body.details).toMatchObject({ you_pay: '50.00 USD', you_get: '84.93 AZN' });
+    expect((await a.call('fx_exchange_prepare', { from_currency: 'AZN', to_currency: 'AZN', amount: 50, currency: 'AZN' })).isError).toBe(true);
+  });
+});

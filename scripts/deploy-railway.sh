@@ -26,6 +26,6 @@ railway variables --service app \
   --set "AGENT_MODEL=${AGENT_MODEL:-claude-haiku-5-5}" \
   --set "AGENT_EFFORT=${AGENT_EFFORT:-low}" \
   --set "AGENT_THINKING=${AGENT_THINKING:-adaptive}" \
-  --set "SESSION_CALL_CAP=40" --set "SESSION_SPEND_CAP_USD=1.50" >/dev/null
+  --set "SESSION_CALL_CAP=300" --set "SESSION_SPEND_CAP_USD=5" >/dev/null
 railway up --service app --detach
 railway domain --service app 2>/dev/null || true

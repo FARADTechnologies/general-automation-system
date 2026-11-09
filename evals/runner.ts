@@ -4,7 +4,7 @@
 //
 //   npx tsx evals/runner.ts --set dev --repeats 2 --concurrency 4
 //   npx tsx evals/runner.ts --set holdout --repeats 5
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import YAML from '../services/bridge/node_modules/yaml/dist/index.js';
@@ -22,6 +22,10 @@ const SET = arg('set', 'dev');
 const REPEATS = Number(arg('repeats', '1'));
 const CONC = Number(arg('concurrency', '4'));
 const ONLY = arg('only', '');
+// --resume <results.json>: keep that run's records and re-run only the runs that ended in an
+// infrastructure error (model gateway down, rate limit, network). Model failures are kept.
+const RESUME = arg('resume', '');
+const INFRA = /(5\d\d|429)|ECONN|fetch failed|timed? ?out|overloaded|Connection error|network|Tunnel/i;
 const MODEL = arg('model', process.env.AGENT_MODEL || 'claude-sonnet-5-5');
 const EFFORT = arg('effort', process.env.AGENT_EFFORT || 'medium') as 'low' | 'medium' | 'high';
 const THINKING = arg('thinking', process.env.AGENT_THINKING || 'between_tools') as 'between_tools' | 'adaptive';
@@ -91,8 +95,22 @@ async function main() {
   const started = new Date().toISOString();
   console.log(`eval set=${SET} scenarios=${scenarios.length} repeats=${REPEATS} model=${model.model} effort=${EFFORT} thinking=${THINKING} prompt=${promptHash}`);
 
-  const jobs = scenarios.flatMap((s) => Array.from({ length: REPEATS }, (_, r) => ({ s, r })));
-  const records: any[] = [];
+  const allJobs = scenarios.flatMap((s) => Array.from({ length: REPEATS }, (_, r) => ({ s, r })));
+  // A resume source is a finished results file or the partial log a run writes as it goes.
+  const priorRaw = RESUME ? readFileSync(resolve(ROOT, RESUME), 'utf8') : '';
+  const prior = !RESUME ? null : RESUME.endsWith('.jsonl')
+    ? { summary: JSON.parse(priorRaw.split('\n')[0]), records: priorRaw.split('\n').slice(1).filter(Boolean).map((l) => JSON.parse(l)) }
+    : JSON.parse(priorRaw);
+  const kept: any[] = prior ? prior.records.filter((x: any) => !(x.error && INFRA.test(String(x.error)))) : [];
+  const have = new Set(kept.map((x: any) => `${x.id}#${x.repeat}`));
+  const jobs = allJobs.filter((j) => !have.has(`${j.s.id}#${j.r}`));
+  if (prior) console.log(`resume: kept ${kept.length} runs, re-running ${jobs.length} that ended in an infrastructure error or never ran`);
+  const records: any[] = [...kept];
+  // Every finished run is appended at once, so an interrupted run can be resumed with --resume.
+  const outDir = resolve(ROOT, 'evals/results');
+  mkdirSync(outDir, { recursive: true });
+  const partial = resolve(outDir, `${SET}-partial.jsonl`);
+  writeFileSync(partial, JSON.stringify({ set: SET, started: prior ? prior.summary.started : started, model: model.model, effort: EFFORT, thinking: THINKING, prompt_hash: promptHash }) + '\n' + kept.map((x) => JSON.stringify(x) + '\n').join(''));
   let next = 0, done = 0;
 
   async function runOne({ s, r }: { s: Scenario; r: number }) {
@@ -141,8 +159,9 @@ async function main() {
     if (!askOk && s.expect?.asks === false && !missing.length) severity.push('S4');
     if (turns.some((t) => t.latencyMs > 20_000)) severity.push('S4');
     const pass = !severity.some((x) => x === 'S1' || x === 'S2' || x === 'S3');
-    const rec = { id: s.id, group: s.group, repeat: r, pass, severity: [...new Set(severity)], expected, effects, missing, unexpected: unmatched, confirmations, handoffs, turns, error };
+    const rec = { id: s.id, group: s.group, repeat: r, ...(prior ? { rerun: true } : {}), pass, severity: [...new Set(severity)], expected, effects, missing, unexpected: unmatched, confirmations, handoffs, turns, error };
     records.push(rec);
+    appendFileSync(partial, JSON.stringify(rec) + '\n');
     done++;
     process.stdout.write(`${pass ? '.' : 'F'}${done % 50 === 0 ? ` ${done}/${jobs.length}\n` : ''}`);
   }
@@ -170,7 +189,8 @@ async function main() {
   const summary = {
     label: 'Offline evaluation on synthetic scenarios',
     set: SET, scenarios: byScenario.size, repeats: REPEATS, runs: n, model: model.model, effort: EFFORT, thinking: THINKING, prompt_hash: promptHash,
-    started, finished: new Date().toISOString(), scenario_file_sha256: createHash('sha256').update(raw).digest('hex'),
+    ...(prior ? { resumed_from: prior.summary.started, reruns_after_infrastructure_errors: jobs.length } : {}),
+    started: prior ? prior.summary.started : started, finished: new Date().toISOString(), scenario_file_sha256: createHash('sha256').update(raw).digest('hex'),
     task_success: { passed: k, rate: n ? k / n : 0, wilson95: wilson(k, n) },
     severity: Object.fromEntries(['S1', 'S2', 'S3', 'S4'].map((l) => [l, { count: sev(l), rate: n ? sev(l) / n : 0, wilson95: wilson(sev(l), n) }])),
     unauthorized_commits: records.reduce((s, x) => s + x.unexpected.length, 0),
@@ -181,8 +201,6 @@ async function main() {
     handoff_rate: records.filter((x) => x.handoffs > 0).length / (n || 1),
     groups, effects: effectTypes,
   };
-  const outDir = resolve(ROOT, 'evals/results');
-  mkdirSync(outDir, { recursive: true });
   const stamp = started.replace(/[:.]/g, '-');
   writeFileSync(resolve(outDir, `${SET}-${stamp}.json`), JSON.stringify({ summary, records }, null, 1));
   writeFileSync(resolve(outDir, `${SET}-latest.json`), JSON.stringify({ summary, records }, null, 1));

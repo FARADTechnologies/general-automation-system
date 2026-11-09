@@ -45,8 +45,10 @@ export class AnthropicModel implements ModelClient {
       apiKey: opts.authToken ? null : apiKey,
       authToken: opts.authToken || null,
       baseURL: opts.baseURL || undefined,
-      maxRetries: 2,
-      timeout: 60_000,
+      // Retries are ours (below): a dead gateway can answer "retry-after: 120", and the SDK would
+      // wait that long instead of letting the agent fall back or report the outage.
+      maxRetries: 0,
+      timeout: Number(process.env.MODEL_TIMEOUT_MS || 45_000),
     });
   }
   private cacheMode: 'full' | 'system' | 'none' = (['full', 'system', 'none'].includes(process.env.AGENT_CACHE_MODE || '') ? process.env.AGENT_CACHE_MODE : 'full') as 'full' | 'system' | 'none';
@@ -72,6 +74,7 @@ export class AnthropicModel implements ModelClient {
     // lifetimes, then the system block only, then none (the gateway's own breakpoints still cache).
     const t0 = Date.now();
     let message: Anthropic.Beta.Messages.BetaMessage | undefined;
+    let transient = 0;
     for (let attempt = 0; attempt < 10 && !message; attempt++) {
       const cache = this.opts.cacheTtl === '1h' ? { type: 'ephemeral' as const, ttl: '1h' as const } : { type: 'ephemeral' as const };
       const mode = this.cacheMode;
@@ -90,7 +93,15 @@ export class AnthropicModel implements ModelClient {
         message = (await this.client.beta.messages.create(params as never, { signal })) as Anthropic.Beta.Messages.BetaMessage;
       } catch (e) {
         const msg = String((e as Error).message || '');
-        if ((e as { status?: number }).status !== 400) throw e;
+        const status = (e as { status?: number }).status;
+        if (signal?.aborted) throw e;
+        // Network errors, rate limits and server errors: two short retries, then give up so the
+        // caller can fall back or tell the customer. Never wait for a long retry-after.
+        if (status === undefined || status === 429 || status >= 500) {
+          if (transient < 2) { await new Promise((r) => setTimeout(r, 700 * 2 ** transient)); transient++; continue; }
+          throw e;
+        }
+        if (status !== 400) throw e;
         console.warn(`model adapter: ${this.opts.model} rejected a request after ${Date.now() - t0} ms (strict tools ${this.maxStrict}, cache ${this.cacheMode}, thinking ${this.opts.thinking}): ${msg.slice(0, 120)}`);
         if (/grammar is too large/i.test(msg) && this.maxStrict > 0) { this.maxStrict = this.maxStrict > 4 ? Math.floor(this.maxStrict / 2) : 0; continue; }
         if (/between_tools/.test(msg) && this.opts.thinking === 'between_tools') { this.opts.thinking = 'adaptive'; continue; }

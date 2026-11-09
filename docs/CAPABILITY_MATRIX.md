@@ -34,7 +34,7 @@ Counts are per expected bank effect; a chain scenario counts once for each effec
 | P1 | Subscriptions | `subscriptions.list`, `subscription.cancel.prepare` | R0 / R2 | tested | 10/15 ("get rid of" not read as cancel; fixed after the run) | 25/25 |
 | P1 | Bills | `bills.pay_all.prepare` | R3 | tested | in bills 45/55 | in bills 45/45 |
 | P1 | Replace card | `branches.list`, `card.replace.prepare` | R0 / R2 | tested | 15/15 | 20/20 |
-| P1 | Recurring | `transfer.recurring.prepare` | R3 | tested (no start date) | 0/20 (every scenario asked for a start date or weekday, which the capability did not support at the time; the assistant said so and asked) | 25/25 |
+| P1 | Recurring | `transfer.recurring.prepare` (start weekday, day and month added after holdout 2; dev scenarios pass) | R3 | tested | 0/20 (every scenario asked for a start date or weekday, which the capability did not support at the time; the assistant said so and asked) | 25/25 |
 | P1 | Split | `split.calculate`, `payment.request.prepare` | R0 / R2 | tested | 10/10 | 25/25 |
 | P1 | Support | `kb.search` (BM25 over `domains/bank/kb`) | R0 | tested | - | read-only |
 | P1 | any | `handoff.create` (runtime tool, record built from the ledger) | R0 | tested | handoff rate 1.8% | handoff rate 1.8% |

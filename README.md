@@ -6,11 +6,15 @@ Built for YUNEX 2026 · Recode Finance. The bank (Caspia Bank) and all data are 
 
 ## Try it
 
+Live deployment: **https://app-production-7364.up.railway.app**. Pick any session name; each session gets its own isolated demo bank.
+
 | Screen | URL |
 |---|---|
-| Customer phone | `/app?s=<any-session-name>` |
-| Projector view (mirrors the phone live) | `/stage?s=<same-session-name>` |
-| Bank console (operators) | `/console` |
+| Customer phone | [`/app?s=<any-session-name>`](https://app-production-7364.up.railway.app/app?s=judge1) |
+| Projector view (mirrors the phone live) | [`/stage?s=<same-session-name>`](https://app-production-7364.up.railway.app/stage?s=judge1) |
+| Bank console (operators) | [`/console`](https://app-production-7364.up.railway.app/console) |
+
+Open the phone link on a phone and the projector link on a laptop with the same session name: what the assistant does on the phone appears on both. Hold the microphone button to speak, or type.
 
 Proven commands: *"Send 25 manat to Rashad"*, *"I lost my debit card. Block it and send a replacement to the Quba branch."*, *"Pay all my unpaid bills and send 20 manat to Leyla"*, *"Summarize my transactions from this week"* (one memo contains a prompt injection; nothing happens).
 

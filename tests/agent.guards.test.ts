@@ -170,4 +170,42 @@ describe('V0 golden paths with a scripted model and a real bank screen', () => {
     expect(r.text).toBe('Paid your Azersu bill of 8.75 AZN.');
     expect((await st.bankState(s)).bills.find((b) => b.blr_cd === 'AZERSU').bll_sts_cd).toBe('PAID');
   });
+
+  it('a question after a confirmed step keeps the task, so the answer can finish the chain', async () => {
+    const s = 'p-chain-ask';
+    await st.customer(s);
+    const r1 = await turn(s, 'Pay my Azersu bill and send 40 manat to Ali', (_req, n, last) => {
+      if (n === 0) return [tool('bills_list_unpaid')];
+      if (n === 1) return [tool('bill_pay_prepare', { bill: last[0].items.find((b: any) => b.biller === 'Azersu').bill })];
+      return [text('Your Azersu bill is paid. You have two contacts named Ali: which one should get the 40 AZN?')];
+    });
+    expect(r1.confirmations[0]).toMatchObject({ outcome: 'committed', verified: true });
+    expect(r1.outcome).toBe('clarification');
+    const r2 = await turn(s, 'Ali Hasanov', (_req, n, last) => {
+      if (n === 0) return [tool('contacts_search', { query: 'Ali Hasanov' })];
+      if (n === 1) return [tool('transfer_contact_prepare', { contact: first(last[0], 'contact'), amount: 40, currency: 'AZN' })];
+      return [text(last[0]?.executed_and_verified ? 'Sent 40.00 AZN to Ali Hasanov.' : 'Not sent.')];
+    });
+    expect(r2.guardHolds).toEqual([]);
+    expect(r2.confirmations[0]).toMatchObject({ outcome: 'committed', verified: true });
+  });
+
+  it('a generic follow-up after a confirmed action starts a fresh task next time', async () => {
+    const s = 'p-chain-generic';
+    await st.customer(s);
+    const r1 = await turn(s, 'Send 25 manat to Rashad', (_req, n, last) => {
+      if (n === 0) return [tool('contacts_search', { query: 'Rashad' })];
+      if (n === 1) return [tool('transfer_contact_prepare', { contact: first(last[0], 'contact'), amount: 25, currency: 'AZN' })];
+      return [text('Sent 25.00 AZN to Rashad Guliyev. Anything else I can help with?')];
+    });
+    expect(r1.outcome).toBe('answered');
+    // the old amount is not evidence for a new request that never states one
+    const r2 = await turn(s, 'Now Leyla', (_req, n, last) => {
+      if (n === 0) return [tool('contacts_search', { query: 'Leyla' })];
+      if (n === 1) return [tool('transfer_contact_prepare', { contact: first(last[0], 'contact'), amount: 25, currency: 'AZN' })];
+      return [text('done')];
+    });
+    expect(r2.guardHolds.map((h: any) => h.code)).toContain('INTENT_NOT_STATED');
+    expect(r2.confirmations).toEqual([]);
+  });
 });

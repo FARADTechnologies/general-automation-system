@@ -30,9 +30,29 @@ export function extractAmounts(text: string): number[] {
     else flush();
   }
   flush();
-  // "20 manat 50 qapik" -> 20.50
-  for (const m of t.matchAll(/(\d+)\s*(?:manat|azn)\s*(\d{1,2})\s*(?:qapik|q[eə]pik|gapik)/g)) out.add(round2(Number(m[1]) + Number(m[2]) / 100));
+  // "20 manat 50 qapik", "20 manat and 50 qapik", "twenty manat and fifty qapik" -> 20.50
+  for (const m of wordsToDigits(t).matchAll(/(\d+)\s*(?:manat|azn)\s*(?:and\s*)?(\d{1,2})\s*(?:qapik|q[eə]pik|gapik)/g)) out.add(round2(Number(m[1]) + Number(m[2]) / 100));
   return [...out];
+}
+
+/** "fifteen manat and fifty qapik" -> "15 manat and 50 qapik" (number words become digits). */
+function wordsToDigits(t: string): string {
+  const parts = t.split(/(\s+|-)/);
+  const out: string[] = [];
+  let total = 0, curr = 0, active = false;
+  const flush = () => { if (active) out.push(String(total + curr)); total = 0; curr = 0; active = false; };
+  for (const p of parts) {
+    const w = p.replace(/[^a-z]/g, '');
+    if (/^\s+$|^-$/.test(p)) { if (!active) out.push(p); continue; }
+    if (w in UNITS) { curr += UNITS[w]; active = true; continue; }
+    if (w in TENS) { curr += TENS[w]; active = true; continue; }
+    if (w === 'hundred') { curr = (curr || 1) * 100; active = true; continue; }
+    if (w === 'thousand') { total += (curr || 1) * 1000; curr = 0; active = true; continue; }
+    flush();
+    out.push(' ', p);
+  }
+  flush();
+  return out.join('').replace(/\s+/g, ' ');
 }
 
 export function mentionedCurrencies(text: string): Set<'AZN' | 'USD'> {

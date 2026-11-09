@@ -164,7 +164,7 @@ input_schema:
     subscription: { type: string, description: "Subscription token from subscriptions.list" }
   required: [subscription]
   additionalProperties: false
-intent_terms: [cancel, stop, unsubscribe, end, remove, terminate]
+intent_terms: [cancel, stop, unsubscribe, end, remove, terminate, rid, drop, discontinue, quit, delete]
 critical_args:
   subscription: { token: subscription, provenance: [bank_record] }
 request:

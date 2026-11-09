@@ -36,6 +36,9 @@ describe('evidence', () => {
     expect(extractAmounts('1,500.50 AZN')).toContain(1500.5);
     expect(extractAmounts('12,5 manat')).toContain(12.5);
     expect(extractAmounts('20 manat 50 qapik')).toContain(20.5);
+    expect(extractAmounts('15 manat and 50 qapik')).toContain(15.5);
+    expect(extractAmounts('Send fifteen manat and fifty qapik to Nigar')).toContain(15.5);
+    expect(extractAmounts('twenty-five manat')).toContain(25);
   });
   it('detects currencies', () => {
     expect([...mentionedCurrencies('20 dollars')]).toEqual(['USD']);

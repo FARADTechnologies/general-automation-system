@@ -156,8 +156,11 @@ export async function runTurn(
       const finalText = lint.ok ? text : SAFE_ANSWER;
       state.messages.push({ role: 'assistant', content: lint.ok ? msg.content : [{ type: 'text', text: SAFE_ANSWER }] } as MessageParam);
       res.text = finalText;
-      // a question with nothing executed in this turn means we are waiting for the user's answer
-      if (lint.ok && /\?/.test(finalText) && res.confirmations.length === 0) { ledger.pending = { type: 'clarification', detail: finalText.slice(0, 160) }; ledger.last_question = finalText.slice(0, 400); res.outcome = 'clarification'; }
+      // A question means we are waiting for the user's answer, so the task (and the user's words in
+      // it) continues. After something was executed, only a real question about the task counts,
+      // e.g. "which Ali should get the 40 AZN?" in the middle of a chain, not "anything else?".
+      const genericFollowUp = /\b(anything else|something else|else i can|help (you )?with)\b[^?]*\?\s*$/i.test(finalText);
+      if (lint.ok && /\?/.test(finalText) && (res.confirmations.length === 0 || !genericFollowUp)) { ledger.pending = { type: 'clarification', detail: finalText.slice(0, 160) }; ledger.last_question = finalText.slice(0, 400); res.outcome = 'clarification'; }
       break;
     }
 

@@ -36,10 +36,23 @@ export class Session {
     this.bridge = new BridgeSession(cfg.bridgeUrl, cfg.agentKey, id);
   }
 
+  private screens = new Map<string, string>();
+
   private toolPort(): ToolPort {
     return {
-      listTools: async () => (await this.bridge.listTools()).map((t): ToolMeta => ({ ...t, kind: t.kind })),
-      call: (name, input, traceId) => this.bridge.call(name, input, traceId),
+      listTools: async () => {
+        const tools = await this.bridge.listTools();
+        for (const t of tools) if (t.kind === 'read' && t.uiRoute) this.screens.set(t.name, t.uiRoute);
+        return tools.map((t): ToolMeta => ({ ...t, kind: t.kind }));
+      },
+      call: async (name, input, traceId) => {
+        const r = await this.bridge.call(name, input, traceId);
+        // Show, don't just tell: a successful read opens the app screen that shows the same data
+        // (from the manifest, deterministic). A prepare step later moves on to its own screen.
+        const route = this.screens.get(name);
+        if (r.ok && route && ROUTE_RE.test(route) && this.hub.state.route !== route && !this.hub.state.modal) this.hub.patch({ route, highlight: null });
+        return r;
+      },
       tokenize: (kind, value, traceId) => this.bridge.tokenize(kind, value, traceId),
     };
   }

@@ -119,6 +119,8 @@ export class Engine {
         _meta: {
           capability: c.id, kind: c.kind, risk: c.risk, critical_args: c.critical_args || {},
           intent_terms: c.intent_terms || [], derived: !!c.derived,
+          // the app screen that shows this capability's data, so the agent can show rather than tell
+          ui_route: c.ui?.route,
           // which output fields carry tokens, and with what provenance (for the agent's evidence set)
           token_provenance: Object.fromEntries(Object.entries(c.response?.fields || {}).flatMap(([k, f]) => (typeof f === 'object' && f.token ? [[k, f.token.provenance]] : []))),
         },

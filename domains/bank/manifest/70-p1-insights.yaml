@@ -423,7 +423,7 @@ response:
     share: { from: shr_minor, transform: major }
     remainder: { from: rmndr_minor, transform: major }
 ui:
-  route: /app/history
+  route: /app/transfers
 ---
 id: payment.request.prepare
 title: Prepare payment requests to contacts

@@ -2,22 +2,22 @@
  "dev": {
   "label": "Offline evaluation on synthetic scenarios",
   "set": "dev",
-  "scenarios": 37,
+  "scenarios": 43,
   "repeats": 1,
-  "runs": 37,
-  "model": "claude-sonnet-5-5",
+  "runs": 43,
+  "model": "claude-opus-5-5",
   "effort": "medium",
-  "thinking": "between_tools",
+  "thinking": "adaptive",
   "prompt_hash": "31da9c25d69d",
-  "started": "2026-11-08T17:33:38.832Z",
-  "finished": "2026-11-08T17:34:27.135Z",
-  "scenario_file_sha256": "876c10f8a65eeda17dd01e8860e429ea17c73694ca6cdde3929d06ed06da20d9",
+  "started": "2026-11-09T02:04:10.385Z",
+  "finished": "2026-11-09T02:05:39.934Z",
+  "scenario_file_sha256": "974af12dabea9d81d0b945819839acf363e6f18580104b710283f260b85959e1",
   "task_success": {
-   "passed": 36,
-   "rate": 0.972972972972973,
+   "passed": 43,
+   "rate": 1,
    "wilson95": [
-    0.8617562156243666,
-    0.9952131489450924
+    0.9179874299767729,
+    1
    ]
   },
   "severity": {
@@ -26,7 +26,7 @@
     "rate": 0,
     "wilson95": [
      0,
-     0.09406095745514377
+     0.08201257002322722
     ]
    },
    "S2": {
@@ -34,15 +34,15 @@
     "rate": 0,
     "wilson95": [
      0,
-     0.09406095745514377
+     0.08201257002322722
     ]
    },
    "S3": {
-    "count": 1,
-    "rate": 0.02702702702702703,
+    "count": 0,
+    "rate": 0,
     "wilson95": [
-     0.004786851054907726,
-     0.13824378437563367
+     0,
+     0.08201257002322722
     ]
    },
    "S4": {
@@ -50,33 +50,33 @@
     "rate": 0,
     "wilson95": [
      0,
-     0.09406095745514377
+     0.08201257002322722
     ]
    }
   },
   "unauthorized_commits": 0,
   "pass_hat_k": {
    "k": 1,
-   "scenarios_all_repeats_passed": 36,
-   "of": 37
+   "scenarios_all_repeats_passed": 43,
+   "of": 43
   },
   "latency_ms": {
-   "turn_p50": 5678,
-   "turn_p95": 15953,
-   "task_p50": 5882,
-   "task_p95": 17008
+   "turn_p50": 6877,
+   "turn_p95": 13636,
+   "task_p50": 6877,
+   "task_p95": 15709
   },
   "cost_usd": {
-   "per_task_mean": 0.012489713513513518,
-   "total": 0.4621194000000002
+   "per_task_mean": 0.025138195348837208,
+   "total": 1.0809423999999999
   },
-  "clarification_rate": 0.1891891891891892,
-  "handoff_rate": 0.02702702702702703,
+  "clarification_rate": 0.11627906976744186,
+  "handoff_rate": 0.023255813953488372,
   "groups": [
    {
     "group": "advice",
-    "runs": 1,
-    "passed": 1,
+    "runs": 2,
+    "passed": 2,
     "s1": 0,
     "s2": 0,
     "s3": 0
@@ -116,15 +116,23 @@
    {
     "group": "golden",
     "runs": 20,
-    "passed": 19,
+    "passed": 20,
     "s1": 0,
     "s2": 0,
-    "s3": 1
+    "s3": 0
    },
    {
     "group": "injection",
     "runs": 2,
     "passed": 2,
+    "s1": 0,
+    "s2": 0,
+    "s3": 0
+   },
+   {
+    "group": "investment",
+    "runs": 3,
+    "passed": 3,
     "s1": 0,
     "s2": 0,
     "s3": 0
@@ -155,8 +163,8 @@
    },
    {
     "group": "paraphrase",
-    "runs": 1,
-    "passed": 1,
+    "runs": 3,
+    "passed": 3,
     "s1": 0,
     "s2": 0,
     "s3": 0
@@ -176,10 +184,15 @@
    {
     "effect": "card_replacement",
     "runs": 2,
-    "passed": 1
+    "passed": 2
    },
    {
     "effect": "card_unblocked",
+    "runs": 1,
+    "passed": 1
+   },
+   {
+    "effect": "invest_order",
     "runs": 1,
     "passed": 1
    },
@@ -205,30 +218,37 @@
    },
    {
     "effect": "transfer",
-    "runs": 11,
-    "passed": 11
+    "runs": 13,
+    "passed": 13
    }
   ]
  },
  "holdout": {
   "label": "Offline evaluation on synthetic scenarios",
-  "set": "holdout",
-  "scenarios": 110,
+  "set": "holdout2",
+  "scenarios": 50,
   "repeats": 5,
-  "runs": 550,
-  "model": "claude-sonnet-5-5",
+  "runs": 250,
+  "model": "claude-opus-5-5",
   "effort": "medium",
-  "thinking": "between_tools",
+  "thinking": "adaptive",
   "prompt_hash": "31da9c25d69d",
-  "started": "2026-11-08T17:36:15.606Z",
-  "finished": "2026-11-08T17:44:37.266Z",
-  "scenario_file_sha256": "6ac0b07845966787440ff875638ac8ff5585bf9f28e87339442361e8ac504643",
+  "resumed_from": "2026-11-09T02:06:41.367Z",
+  "reruns_after_infrastructure_errors": 0,
+  "incomplete": {
+   "planned_runs": 560,
+   "completed_runs": 250,
+   "reason": "the remaining runs ended in infrastructure errors (model gateway unavailable) and were not re-run"
+  },
+  "started": "2026-11-09T02:06:41.367Z",
+  "finished": "2026-11-09T05:12:05.598Z",
+  "scenario_file_sha256": "fc353f56e8f7a13a4d2eddecb13fadad088bb59dd39f3efea293f7edd73ad563",
   "task_success": {
-   "passed": 530,
-   "rate": 0.9636363636363636,
+   "passed": 225,
+   "rate": 0.9,
    "wilson95": [
-    0.9445019573661284,
-    0.9763389473257547
+    0.8565473757413067,
+    0.9313455464589946
    ]
   },
   "severity": {
@@ -237,7 +257,7 @@
     "rate": 0,
     "wilson95": [
      0,
-     0.006936279253851642
+     0.015133847249623387
     ]
    },
    "S2": {
@@ -245,129 +265,73 @@
     "rate": 0,
     "wilson95": [
      0,
-     0.006936279253851642
+     0.015133847249623387
     ]
    },
    "S3": {
-    "count": 20,
-    "rate": 0.03636363636363636,
+    "count": 25,
+    "rate": 0.1,
     "wilson95": [
-     0.023661052674245377,
-     0.0554980426338716
+     0.06865445354100544,
+     0.1434526242586933
     ]
    },
    "S4": {
-    "count": 7,
-    "rate": 0.012727272727272728,
+    "count": 6,
+    "rate": 0.024,
     "wilson95": [
-     0.006178396019337456,
-     0.026035868853507053
+     0.011044626630631514,
+     0.051362795951009954
     ]
    }
   },
   "unauthorized_commits": 0,
   "pass_hat_k": {
    "k": 5,
-   "scenarios_all_repeats_passed": 106,
-   "of": 110
+   "scenarios_all_repeats_passed": 45,
+   "of": 50
   },
   "latency_ms": {
-   "turn_p50": 4351,
-   "turn_p95": 9022,
-   "task_p50": 5414,
-   "task_p95": 9553
+   "turn_p50": 7317,
+   "turn_p95": 14636,
+   "task_p50": 8352,
+   "task_p95": 18100
   },
   "cost_usd": {
-   "per_task_mean": 0.008972689636363633,
-   "total": 4.934979299999998
+   "per_task_mean": 0.01693673199999999,
+   "total": 4.234182999999997
   },
-  "clarification_rate": 0.2818181818181818,
-  "handoff_rate": 0.01818181818181818,
+  "clarification_rate": 0.248,
+  "handoff_rate": 0.02,
   "groups": [
-   {
-    "group": "advice",
-    "runs": 20,
-    "passed": 20,
-    "s1": 0,
-    "s2": 0,
-    "s3": 0
-   },
    {
     "group": "ambiguous_contact",
     "runs": 35,
-    "passed": 35,
-    "s1": 0,
-    "s2": 0,
-    "s3": 0
-   },
-   {
-    "group": "chains",
-    "runs": 50,
-    "passed": 50,
-    "s1": 0,
-    "s2": 0,
-    "s3": 0
-   },
-   {
-    "group": "confirmation_denied",
-    "runs": 35,
-    "passed": 35,
-    "s1": 0,
-    "s2": 0,
-    "s3": 0
-   },
-   {
-    "group": "contacts_without_name",
-    "runs": 35,
-    "passed": 35,
-    "s1": 0,
-    "s2": 0,
-    "s3": 0
-   },
-   {
-    "group": "golden",
-    "runs": 145,
-    "passed": 135,
+    "passed": 25,
     "s1": 0,
     "s2": 0,
     "s3": 10
    },
    {
-    "group": "injection",
-    "runs": 35,
-    "passed": 35,
+    "group": "golden",
+    "runs": 125,
+    "passed": 120,
     "s1": 0,
     "s2": 0,
-    "s3": 0
-   },
-   {
-    "group": "limits_and_funds",
-    "runs": 25,
-    "passed": 25,
-    "s1": 0,
-    "s2": 0,
-    "s3": 0
+    "s3": 5
    },
    {
     "group": "missing_info",
-    "runs": 50,
-    "passed": 50,
-    "s1": 0,
-    "s2": 0,
-    "s3": 0
-   },
-   {
-    "group": "out_of_scope",
-    "runs": 40,
-    "passed": 40,
+    "runs": 15,
+    "passed": 15,
     "s1": 0,
     "s2": 0,
     "s3": 0
    },
    {
     "group": "paraphrase",
-    "runs": 80,
-    "passed": 70,
+    "runs": 75,
+    "passed": 65,
     "s1": 0,
     "s2": 0,
     "s3": 10
@@ -376,18 +340,18 @@
   "effects": [
    {
     "effect": "bill_paid",
-    "runs": 45,
-    "passed": 45
+    "runs": 25,
+    "passed": 20
    },
    {
     "effect": "card_blocked",
-    "runs": 30,
-    "passed": 30
+    "runs": 15,
+    "passed": 15
    },
    {
     "effect": "card_replacement",
-    "runs": 20,
-    "passed": 20
+    "runs": 5,
+    "passed": 5
    },
    {
     "effect": "card_unblocked",
@@ -397,32 +361,32 @@
    {
     "effect": "invest_order",
     "runs": 5,
-    "passed": 0
+    "passed": 5
    },
    {
     "effect": "payment_request",
-    "runs": 25,
-    "passed": 25
+    "runs": 5,
+    "passed": 5
    },
    {
     "effect": "recurring_transfer",
-    "runs": 25,
-    "passed": 25
+    "runs": 10,
+    "passed": 0
    },
    {
     "effect": "subscription_cancelled",
-    "runs": 25,
-    "passed": 25
+    "runs": 10,
+    "passed": 5
    },
    {
     "effect": "topup",
-    "runs": 25,
-    "passed": 25
+    "runs": 10,
+    "passed": 10
    },
    {
     "effect": "transfer",
-    "runs": 125,
-    "passed": 110
+    "runs": 90,
+    "passed": 80
    }
   ]
  }

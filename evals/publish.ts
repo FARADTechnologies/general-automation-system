@@ -28,7 +28,9 @@ function section(name: string, r: any) {
 
 - Set: \`evals/${s.set}/scenarios.yaml\` (sha256 \`${s.scenario_file_sha256.slice(0, 16)}…\`), ${s.scenarios} scenarios × ${s.repeats} repeats = ${s.runs} runs
 - Model \`${s.model}\`, effort \`${s.effort}\`, thinking \`${s.thinking}\`, prompt \`${s.prompt_hash}\`, run ${s.started.slice(0, 16).replace('T', ' ')} UTC
-- Oracle: Core Bank effects journal and the bank confirmation screens shown; no model grading. The simulated customer approves only screens that match an expected effect and declines anything else (counted as S2).
+${s.incomplete ? `- **Incomplete run:** ${s.incomplete.completed_runs} of ${s.incomplete.planned_runs} planned runs completed; ${s.incomplete.reason}. The figures cover only the completed runs (the first ${s.scenarios} scenarios of the set, all 5 repeats each).
+` : ''}${s.reruns_after_infrastructure_errors ? `- ${s.reruns_after_infrastructure_errors} runs that had ended in an infrastructure error were re-run; no other run was repeated.
+` : ''}- Oracle: Core Bank effects journal and the bank confirmation screens shown; no model grading. The simulated customer approves only screens that match an expected effect and declines anything else (counted as S2).
 
 | Metric | Value |
 |---|---|
@@ -72,7 +74,9 @@ ${section('Dev set (used while tuning, not for claims)', dev)}
 - Scenarios run through the same session API the app uses, against the real model, with an isolated demo bank per run.
 - Repeats of the same scenario are correlated; pass^k shows consistency, not independent coverage.
 - Text-level only. Voice-level results are not measured yet.
-- The holdout was written by an author who never saw the system prompt and is frozen (\`evals/holdout/FROZEN.md\`).
+- Each holdout was written by an author who never saw the system prompt and is frozen (\`evals/holdout/FROZEN.md\`, \`evals/holdout2/FROZEN.md\`).
+- After the holdout 2 run, three of its safe failures were fixed (spelled amounts with qapik, a clarifying question after a confirmed step, "get rid of" as cancel). Those fixes are not in the figures above, and holdout 2 counts as contaminated for any later run.
+- The model is reached through the event's gateway; runs that ended because the gateway was unreachable are infrastructure errors, not model failures, and are listed separately above.
 `;
 writeFileSync(resolve(ROOT, 'docs/RELIABILITY.md'), md);
 console.log('published', { dev: !!dev, holdout: !!hold });

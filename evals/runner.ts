@@ -103,7 +103,10 @@ async function main() {
     : JSON.parse(priorRaw);
   const kept: any[] = prior ? prior.records.filter((x: any) => !(x.error && INFRA.test(String(x.error)))) : [];
   const have = new Set(kept.map((x: any) => `${x.id}#${x.repeat}`));
-  const jobs = allJobs.filter((j) => !have.has(`${j.s.id}#${j.r}`));
+  // --no-rerun: only re-summarise the kept runs (for example when the model gateway is gone);
+  // the summary then states how many of the planned runs were completed.
+  const NO_RERUN = process.argv.includes('--no-rerun');
+  const jobs = NO_RERUN ? [] : allJobs.filter((j) => !have.has(`${j.s.id}#${j.r}`));
   if (prior) console.log(`resume: kept ${kept.length} runs, re-running ${jobs.length} that ended in an infrastructure error or never ran`);
   const records: any[] = [...kept];
   // Every finished run is appended at once, so an interrupted run can be resumed with --resume.
@@ -190,6 +193,7 @@ async function main() {
     label: 'Offline evaluation on synthetic scenarios',
     set: SET, scenarios: byScenario.size, repeats: REPEATS, runs: n, model: model.model, effort: EFFORT, thinking: THINKING, prompt_hash: promptHash,
     ...(prior ? { resumed_from: prior.summary.started, reruns_after_infrastructure_errors: jobs.length } : {}),
+    ...(n < allJobs.length ? { incomplete: { planned_runs: allJobs.length, completed_runs: n, reason: 'the remaining runs ended in infrastructure errors (model gateway unavailable) and were not re-run' } } : {}),
     started: prior ? prior.summary.started : started, finished: new Date().toISOString(), scenario_file_sha256: createHash('sha256').update(raw).digest('hex'),
     task_success: { passed: k, rate: n ? k / n : 0, wilson95: wilson(k, n) },
     severity: Object.fromEntries(['S1', 'S2', 'S3', 'S4'].map((l) => [l, { count: sev(l), rate: n ? sev(l) / n : 0, wilson95: wilson(sev(l), n) }])),

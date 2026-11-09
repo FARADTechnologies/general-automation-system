@@ -111,6 +111,7 @@ export function StoreProvider({ children }) {
     },
     rateLabel: (from, to) => { const rate = (code) => ref.current.rates.find((x) => x.code === code); return from === 'AZN' ? `1 ${to} = ${rate(to).sell} AZN` : `1 ${from} = ${rate(from).buy} AZN`; },
     fundsOf: (c) => (c.accountId ? ref.current.accounts.find((a) => a.id === c.accountId)?.balance ?? 0 : c.available ?? 0),
+    currencyOf: (c) => (c.accountId ? ref.current.accounts.find((a) => a.id === c.accountId)?.currency : c.currency) || 'AZN',
   }), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <Ctx.Provider value={{ state, mutate, getState: () => ref.current, bank, toast, reset }}>{children}</Ctx.Provider>;

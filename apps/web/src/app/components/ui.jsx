@@ -60,7 +60,7 @@ export function CardArt({ card, small = false, showBalance = true, reveal = fals
       {showBalance ? (
         <div className="ca-bal">
           <small>{card.creditLimit ? 'Available limit' : 'Balance'}</small>
-          <strong>{hide ? '•••••' : money(funds)}</strong>
+          <strong>{hide ? '•••••' : money(funds, bank.currencyOf(card))}</strong>
         </div>
       ) : (
         <div className="row"><span className="ca-chip" /></div>
@@ -93,7 +93,7 @@ export function CardPicker({ value, onChange, includeCredit = true, label = 'Fro
             <MiniCard card={c} />
             <span className="grow">
               <span style={{ display: 'block', fontWeight: 600 }}>{c.name} •••• {last4(c.number)}</span>
-              <span className="tiny muted num">{c.frozen ? 'Frozen' : (c.creditLimit ? 'Limit ' : '') + money(bank.fundsOf(c))}</span>
+              <span className="tiny muted num">{c.frozen ? 'Frozen' : (c.creditLimit ? 'Limit ' : '') + money(bank.fundsOf(c), bank.currencyOf(c))}</span>
             </span>
             <span className={'radio' + (value === c.id ? ' on' : '')} style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid var(--line)', background: value === c.id ? 'var(--sea)' : 'transparent', boxShadow: value === c.id ? 'inset 0 0 0 3px var(--surface)' : 'none' }} />
           </button>

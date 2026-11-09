@@ -16,7 +16,7 @@ export default function Cards() {
           <CardArt card={c} />
           <span className="between small" style={{ padding: '0 4px' }}>
             <span><strong>{c.name}</strong> <span className="muted">•••• {last4(c.number)}</span></span>
-            <span className="muted num">{c.creditLimit ? `Limit ${money(c.creditLimit)}` : money(bank.fundsOf(c))}</span>
+            <span className="muted num">{c.creditLimit ? `Limit ${money(c.creditLimit)}` : money(bank.fundsOf(c), bank.currencyOf(c))}</span>
           </span>
         </button>
       ))}

@@ -11,6 +11,7 @@ import PhoneFrame from './components/PhoneFrame.tsx';
 import PlanPanel, { type PlanStep } from './components/PlanPanel.tsx';
 import SeesPanel, { type SeesRow } from './components/SeesPanel.tsx';
 import '../styles/stage.css';
+import { RichText } from '../runtime/RichText';
 
 interface Trace { trace_id: string; at: number; kind: string; name?: string; decision?: string; detail?: any }
 
@@ -118,7 +119,7 @@ export default function Stage() {
         <div className="stg-card stg-said">
           <span className="stg-label"><Mic size={14} /> Customer said</span>
           <p className="stg-quote">{lastUser ? `“${lastUser.text}”` : 'Waiting for a request…'}</p>
-          {lastAgent && lastUser && lastAgent.at >= lastUser.at && <p className="stg-answer">{lastAgent.text}</p>}
+          {lastAgent && lastUser && lastAgent.at >= lastUser.at && <p className="stg-answer"><RichText text={lastAgent.text} /></p>}
           <span className={'stg-status s-' + status}>{status.replace('_', ' ')}</span>
           {answer?.detail && <span className="stg-metric">This turn: {Math.round(answer.detail.ms / 100) / 10}s · {answer.detail.llm_calls} model calls · ${answer.detail.cost_usd.toFixed(3)} (measured)</span>}
         </div>

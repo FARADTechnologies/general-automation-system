@@ -5,6 +5,7 @@ import { hub, useUi, useConnected } from '../../runtime/hub.ts';
 import { speechSupported, startListening } from '../../runtime/voice.ts';
 import { useMode } from '../App.jsx';
 import { useLocation } from 'react-router-dom';
+import { RichText } from '../../runtime/RichText';
 
 const STATUS_TEXT: Record<string, string> = {
   idle: 'Ask me to do something',
@@ -81,7 +82,7 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
               ))}
             </ol>
           )}
-          {showAgentReply && <p className="agent-reply"><Sparkles size={14} />{lastAgent!.text}</p>}
+          {showAgentReply && <p className="agent-reply"><Sparkles size={14} /><RichText text={lastAgent!.text} /></p>}
         </div>
       )}
 

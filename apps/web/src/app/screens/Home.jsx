@@ -43,7 +43,7 @@ export default function Home() {
       <section className="home-top">
         <div className="between">
           <button className="home-greet" onClick={() => nav('/profile')} data-nav-id="profile">
-            <span className="avatar">LH</span>
+            <span className="avatar">{`${state.user.firstName?.[0] || ""}${state.user.lastName?.[0] || ""}`.toUpperCase() || "•"}</span>
             <span style={{ textAlign: 'left' }}>
               <span className="tiny" style={{ opacity: 0.75, display: 'block' }}>{greeting()},</span>
               <strong style={{ fontSize: 17 }}>{state.user.firstName}</strong>

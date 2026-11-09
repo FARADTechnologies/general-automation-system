@@ -7,6 +7,13 @@ import { lintAnswer, claimedFigures } from './lint.ts';
 const PAN = '4111111111111111';
 
 describe('ingress tokenizer', () => {
+  it('finds IBANs written together or in groups, and only checksum-valid ones', () => {
+    expect(findSensitive('IBAN TR33 0006 1005 1978 6457 8413 26, SWIFT TGBATRIS').map((h) => h.kind + ':' + h.digits)).toEqual(['iban:TR330006100519786457841326']);
+    expect(findSensitive('wire 200 usd to DE89370400440532013000 for John').map((h) => h.digits)).toEqual(['DE89370400440532013000']);
+    expect(findSensitive('gb29 nwbk 6016 1331 9268 19').map((h) => h.digits)).toEqual(['GB29NWBK60161331926819']);
+    expect(findSensitive('DE89 3704 0044 0532 0130 01').some((h) => h.kind === 'iban')).toBe(false);
+    expect(findSensitive('Send 25 manat to Rashad')).toEqual([]);
+  });
   it('finds cards written plainly, spaced, dashed and spoken', () => {
     expect(luhn(PAN)).toBe(true);
     expect(findSensitive(`card ${PAN}`)[0]).toMatchObject({ kind: 'pan', digits: PAN });

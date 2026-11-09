@@ -69,7 +69,7 @@ export class BridgeSession {
   }
 
   /** Ingress tokenizer storage: raw card/phone numbers from the user go to the vault before the LLM. */
-  tokenize(kind: 'pan' | 'phone', value: string, traceId: string): Promise<{ token: string; masked: string }> {
+  tokenize(kind: 'pan' | 'phone' | 'iban', value: string, traceId: string): Promise<{ token: string; masked: string }> {
     return this.http('POST', '/agent/vault/ingress', { session: this.session, kind, value, trace_id: traceId });
   }
 

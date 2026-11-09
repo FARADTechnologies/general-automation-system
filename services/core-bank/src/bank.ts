@@ -4,7 +4,7 @@ import { seedCustomer, type CustomerData } from './seed.ts';
 import { marketData, seedPortfolio, type Holding } from './market.ts';
 
 export interface Drft {
-  drft_id: string; cust_id: string; dst_typ_cd: 'BNF' | 'PAN' | 'ACCT' | 'BLL' | 'TOPUP' | 'MSISDN';
+  drft_id: string; cust_id: string; dst_typ_cd: 'BNF' | 'PAN' | 'ACCT' | 'BLL' | 'TOPUP' | 'MSISDN' | 'IBAN'; dst_bic?: string; dst_cntry?: string; purp_cd?: string;
   src_acct_no: string; dst_ref: string; dst_nm: string; amt_minor: number; fee_minor: number; ccy: string;
   chnl_cd: string; idmp_key: string; sts_cd: 'DRFT' | 'POSTED' | 'CNCL' | 'RJCT'; crt_ts: string; pst_ts: string | null; txn_ref: string | null; rsn_cd: string | null;
 }
@@ -23,6 +23,18 @@ export class BankError extends Error {
 
 const id = (p: string) => p + randomBytes(5).toString('hex').toUpperCase();
 const OWN_BIN = '4169';
+
+/** IBAN checksum (ISO 13616, mod 97). */
+export function ibanValid(iban: string): boolean {
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)) return false;
+  const moved = iban.slice(4) + iban.slice(0, 4);
+  let rem = 0;
+  for (const ch of moved) {
+    const v = ch >= 'A' ? String(ch.charCodeAt(0) - 55) : ch;
+    for (const dgt of v) rem = (rem * 10 + Number(dgt)) % 97;
+  }
+  return rem === 1;
+}
 
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 /** First payment of a standing order, from what the customer said: a weekday (strt_wkdy), a day
@@ -153,6 +165,18 @@ export class CoreBank {
         dst_nm = b.blr_nm;
         break;
       }
+      case 'IBAN': {
+        // international (SWIFT) transfer: valid IBAN checksum, BIC format, a named beneficiary
+        const iban = ref.replace(/\s+/g, '').toUpperCase();
+        if (!ibanValid(iban)) throw new BankError(400, 'IBAN_INV', 'invalid IBAN');
+        const bic = String(body.dst_bic || '').replace(/\s+/g, '').toUpperCase();
+        if (!/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(bic)) throw new BankError(400, 'BIC_INV', 'invalid SWIFT/BIC code');
+        const name = String(body.bnfcry_nm || '').trim();
+        if (name.length < 3 || name.length > 70) throw new BankError(400, 'BNF_NM_INV', 'beneficiary name required');
+        dst_nm = name;
+        fee = Math.max(1500, Math.round(amt * 0.002)); // 0.2%, minimum 15.00
+        break;
+      }
       case 'TOPUP': {
         const [blr, num] = ref.split(':');
         const b = c.data.blrs.find((x) => x.blr_cd === blr && x.blr_grp === 'MOBILE');
@@ -166,7 +190,8 @@ export class CoreBank {
     if (amt + fee > src.bal_minor) throw new BankError(422, 'NSF', 'insufficient funds');
 
     const d: Drft = {
-      drft_id: id('DR'), cust_id: c.cust_id, dst_typ_cd: typ, src_acct_no: src.acct_no, dst_ref: ref, dst_nm,
+      drft_id: id('DR'), cust_id: c.cust_id, dst_typ_cd: typ, src_acct_no: src.acct_no, dst_ref: typ === 'IBAN' ? ref.replace(/\s+/g, '').toUpperCase() : ref, dst_nm,
+      ...(typ === 'IBAN' ? { dst_bic: String(body.dst_bic).replace(/\s+/g, '').toUpperCase(), dst_cntry: String(body.dst_cntry || '').slice(0, 40), purp_cd: String(body.purp_cd || '').slice(0, 40) } : {}),
       amt_minor: amt, fee_minor: fee, ccy, chnl_cd: String(body.chnl_cd || 'UNK'), idmp_key: idmp,
       sts_cd: 'DRFT', crt_ts: new Date().toISOString(), pst_ts: null, txn_ref: null, rsn_cd: null,
     };
@@ -205,6 +230,7 @@ export class CoreBank {
     if (d.dst_typ_cd === 'BNF') { const b = c.data.bnfcry.find((x) => x.bnfcry_ref === d.dst_ref); if (b && !b.frst_pmt_dt) b.frst_pmt_dt = new Date().toISOString(); }
     if (d.dst_typ_cd === 'BLL') { ctg = 'UTIL'; mrch = d.dst_nm; }
     if (d.dst_typ_cd === 'TOPUP') { ctg = 'MOBL'; mrch = `${d.dst_nm} top-up`; }
+    if (d.dst_typ_cd === 'IBAN') mrch = `International transfer to ${d.dst_nm}`;
     const txn_ref = id('TXN');
     c.data.txns.unshift({
       txn_ref, acct_no: src.acct_no, bkg_dt: new Date().toISOString(), amt_minor: -(d.amt_minor + d.fee_minor), ccy: d.ccy,

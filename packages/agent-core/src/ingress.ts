@@ -1,9 +1,9 @@
 // Ingress tokenizer (deterministic, runs before the LLM sees anything).
 // Detects card-like numbers (13-19 digits passing Luhn, including spoken digit groups)
-// and full phone numbers. Luhn is used only here, and only to recognise cards:
+// full phone numbers and IBANs (checksum-valid). Luhn is used only here, and only to recognise cards:
 // ordinary amounts are never touched.
 
-export interface SensitiveHit { kind: 'pan' | 'phone'; digits: string; start: number; end: number }
+export interface SensitiveHit { kind: 'pan' | 'phone' | 'iban'; digits: string; start: number; end: number }
 
 const DIGIT_WORDS: Record<string, string> = { zero: '0', oh: '0', o: '0', one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9' };
 
@@ -33,8 +33,45 @@ function classify(digits: string, plus: boolean): 'pan' | 'phone' | null {
 
 interface Group { digits: string; start: number; end: number; plus: boolean }
 
-/** Find card and phone numbers in free text, written as digits or as spoken digit words. */
+/** IBAN checksum (ISO 13616, mod 97). */
+export function ibanValid(iban: string): boolean {
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)) return false;
+  const moved = iban.slice(4) + iban.slice(0, 4);
+  let rem = 0;
+  for (const ch of moved) for (const d of ch >= 'A' ? String(ch.charCodeAt(0) - 55) : ch) rem = (rem * 10 + Number(d)) % 97;
+  return rem === 1;
+}
+
+/** IBANs written together ("DE89370400440532013000") or in groups of four ("DE89 3704 0044 ..."). */
+export function findIbans(text: string): SensitiveHit[] {
+  const hits: SensitiveHit[] = [];
+  const re = /\b[A-Za-z]{2}\d{2}(?:[ -]?[A-Za-z0-9]{1,4}){3,8}\b/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    // try the longest prefix that ends on a group boundary and passes the checksum
+    const parts = m[0].split(/(?=[ -])/);
+    for (let k = parts.length; k >= 1; k--) {
+      const raw = parts.slice(0, k).join('');
+      const v = raw.replace(/[ -]/g, '').toUpperCase();
+      if (ibanValid(v)) { hits.push({ kind: 'iban', digits: v, start: m.index, end: m.index + raw.length }); break; }
+    }
+  }
+  return hits;
+}
+
+/** Find card numbers, phone numbers and IBANs in free text (digits or spoken digit words). */
 export function findSensitive(text: string): SensitiveHit[] {
+  // IBANs first; their characters are blanked so their digits are not read as a card or a phone
+  const ibans = findIbans(text);
+  if (ibans.length) {
+    let blanked = text;
+    for (const h of ibans) blanked = blanked.slice(0, h.start) + ' '.repeat(h.end - h.start) + blanked.slice(h.end);
+    return [...ibans, ...findDigits(blanked)].sort((a, b) => a.start - b.start);
+  }
+  return findDigits(text);
+}
+
+function findDigits(text: string): SensitiveHit[] {
   // 1) tokens that are digit groups or single digit words, with positions
   const re = /\+?\d+|[A-Za-z]+/g;
   const toks: (Group & { word: boolean })[] = [];

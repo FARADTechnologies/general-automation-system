@@ -15,7 +15,30 @@ async function confirm(s: string, prep: any, proof = true) {
   const r = await dev.post(prep.body.prepared_id, { decision: 'approve', payload_hash: v.payloadHash, proof: proof ? { method: 'pin', pin: '1234' } : undefined, acknowledge_warning: true });
   return { status: r.status, body: await r.json(), view: v };
 }
-const ingress = async (s: string, kind: 'pan' | 'phone', value: string) => (await (await fetch(`${st.bridgeUrl}/agent/vault/ingress`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${st.keys.agent}` }, body: JSON.stringify({ session: s, kind, value }) })).json()).token;
+const ingress = async (s: string, kind: 'pan' | 'phone' | 'iban', value: string) => (await (await fetch(`${st.bridgeUrl}/agent/vault/ingress`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${st.keys.agent}` }, body: JSON.stringify({ session: s, kind, value }) })).json()).token;
+
+describe('international transfer (SWIFT)', () => {
+  it('IBAN only as a vault token: prepare, confirm on the bank screen, and the bank posts it with the fee', async () => {
+    const s = 'p0-intl'; const a = await st.mcp(s);
+    const tok = await ingress(s, 'iban', 'DE89 3704 0044 0532 0130 00');
+    expect(tok).toMatch(/^ibn_/);
+    const prep = await a.call('transfer_intl_prepare', { iban: tok, swift: 'cobadeffxxx', beneficiary: 'Hans Becker', country: 'Germany', amount: 100, currency: 'AZN' });
+    expect(prep.isError, JSON.stringify(prep.body)).toBe(false);
+    expect(JSON.stringify(prep.body)).not.toContain('370400440532013000'); // the full IBAN never reaches the agent
+    expect(prep.body.details).toMatchObject({ payee_name: 'Hans Becker', masked_destination: 'DE•• •••• 3000', swift: 'COBADEFFXXX', fee: '15.00 AZN' });
+    const r = await confirm(s, prep);
+    expect(r.body).toMatchObject({ status: 'committed', verified: true });
+    expect(await effects(s)).toEqual([{ type: 'transfer', to: 'Hans Becker', amount: 100, currency: 'AZN' }]);
+  });
+
+  it('rejects a wrong SWIFT code, an IBAN typed into the tool, and an invalid IBAN at ingress', async () => {
+    const s = 'p0-intl-bad'; const a = await st.mcp(s);
+    const tok = await ingress(s, 'iban', 'GB29NWBK60161331926819');
+    expect((await a.call('transfer_intl_prepare', { iban: tok, swift: 'NOPE', beneficiary: 'Jane Doe', amount: 50, currency: 'AZN' })).isError).toBe(true);
+    expect((await a.call('transfer_intl_prepare', { iban: 'GB29NWBK60161331926819', swift: 'NWBKGB2L', beneficiary: 'Jane Doe', amount: 50, currency: 'AZN' })).isError).toBe(true);
+    expect(await ingress(s, 'iban', 'not an iban')).toBeUndefined();
+  });
+});
 
 describe('P0 capabilities', () => {
   it('own-account transfer', async () => {

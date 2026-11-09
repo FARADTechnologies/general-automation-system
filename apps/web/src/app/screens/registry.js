@@ -10,6 +10,7 @@ import RecurringTransfer from './RecurringTransfer.tsx';
 import SplitBill from './SplitBill.tsx';
 import TemplateTransfer from './TemplateTransfer.tsx';
 import TransferContact from './TransferContact.tsx';
+import AbroadTransfer from './AbroadTransfer.tsx';
 import { Portfolio, Market } from './Invest.tsx';
 import { Instrument, OrderForm } from './InvestOrder.tsx';
 import { Loans, LoanApply, Deposits, NewDeposit, Cashback, Exchange } from './Products.jsx';
@@ -31,7 +32,7 @@ export default [
   ['/transfers/card', ToCard],
   ['/transfers/phone', ByPhone],
   ['/transfers/own', OwnAccounts],
-  ['/transfers/abroad', Abroad],
+  ['/transfers/abroad', AbroadTransfer],
   ['/transfers/request', RequestMoney],
   ['/receipt/:id', ReceiptScreen],
   ['/payments', Payments],

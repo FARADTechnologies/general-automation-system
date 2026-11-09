@@ -23,7 +23,7 @@ export type CallOutcome = { ok: true; data: any; text: string } | { ok: false; e
 export interface ToolPort {
   listTools(): Promise<ToolMeta[]>;
   call(name: string, input: Record<string, unknown>, traceId: string): Promise<CallOutcome>;
-  tokenize(kind: 'pan' | 'phone', value: string, traceId: string): Promise<{ token: string; masked: string }>;
+  tokenize(kind: 'pan' | 'phone' | 'iban', value: string, traceId: string): Promise<{ token: string; masked: string }>;
 }
 
 export interface TraceEvent {
@@ -95,7 +95,7 @@ export async function runTurn(
   const hits = findSensitive(userText);
   const minted: { token: string; masked: string; kind: string }[] = [];
   for (const h of hits) minted.push({ ...(await deps.tools.tokenize(h.kind, h.digits, traceId)), kind: h.kind });
-  const llmText = replaceHits(userText, hits, (h, i) => `${h.kind === 'pan' ? 'card' : 'phone'} ${minted[i].token} (${minted[i].masked})`);
+  const llmText = replaceHits(userText, hits, (h, i) => `${h.kind === 'pan' ? 'card' : h.kind === 'iban' ? 'IBAN' : 'phone'} ${minted[i].token} (${minted[i].masked})`);
   const textForEvidence = replaceHits(userText, hits, () => ' ');
   trace({ kind: 'input', detail: { agent_sees: llmText } });
   if (hits.length) trace({ kind: 'ingress', decision: 'tokenized', detail: { count: hits.length, kinds: hits.map((h) => h.kind) } });

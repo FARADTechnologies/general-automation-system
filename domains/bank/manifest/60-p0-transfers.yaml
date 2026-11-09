@@ -504,3 +504,92 @@ ui:
     start: "I'm preparing a {amount} top-up on your {operator} number."
     done: "Done. Your number is topped up with {amount}."
   route: /app/payments
+---
+id: transfer.intl.prepare
+title: Prepare an international (SWIFT) transfer
+llm_description: >
+  Prepare an international transfer to a bank account abroad, by IBAN and SWIFT/BIC code. The iban
+  must be the ibn_ reference that replaced the IBAN in the user's message; if the user has not
+  given an IBAN, ask for it. beneficiary is the account holder's full name and swift the BIC code,
+  both exactly as the user gave them; ask for any that are missing. Fee 0.2%, minimum 15; arrives
+  in one to three business days. Nothing moves until the customer confirms on the bank screen.
+kind: prepare
+risk: R3
+input_schema:
+  type: object
+  properties:
+    iban: { type: string, description: "ibn_ reference from the user's message" }
+    swift: { type: string, description: "SWIFT/BIC code exactly as the user gave it" }
+    beneficiary: { type: string, description: "Account holder's full name exactly as the user gave it" }
+    country: { type: string, description: "Destination country, only if the user said it" }
+    purpose: { type: string, enum: [family_support, tuition, medical, services, goods, other] }
+    amount: { type: number }
+    currency: { type: string, enum: [AZN, USD] }
+  required: [iban, swift, beneficiary, amount, currency]
+  additionalProperties: false
+intent_terms: [send, transfer, pay, wire, swift, international, abroad, iban, remit]
+critical_args:
+  iban: { token: iban, provenance: [ingress_token] }
+  amount: { provenance: [user_stated] }
+lookups:
+  source:
+    method: GET
+    path: /internal/v3/cust/{ctx.cust_id}/acct
+    items: items
+    where: { ccy: "{input.currency}", acct_typ_cd: CUR }
+policy:
+  limit_group: transfer
+  amount: "{input.amount}"
+  currency: "{input.currency}"
+  new_payee: "true"
+  balance: "{lookup.source.avail_bal_minor|major}"
+request:
+  method: POST
+  path: /internal/v3/pmt/drft
+  body:
+    cust_id: "{ctx.cust_id}"
+    src_acct_no: "{lookup.source.acct_no}"
+    dst_typ_cd: IBAN
+    dst_ref: "{args.iban}"
+    dst_bic: "{input.swift}"
+    bnfcry_nm: "{input.beneficiary}"
+    dst_cntry: "{input.country}"
+    purp_cd: "{input.purpose}"
+    amt_minor: "{input.amount|minor}"
+    ccy: "{input.currency}"
+    chnl_cd: AGT
+    idmp_key: "{ctx.idempotency_key}"
+result:
+  ref: drft_id
+  fee: { from: fee_minor, transform: major }
+  payee_name: dst_nm
+commit: { method: POST, path: "/internal/v3/pmt/{result.ref}/post" }
+cancel: { method: POST, path: "/internal/v3/pmt/{result.ref}/cncl" }
+postcondition:
+  method: GET
+  path: /internal/v3/pmt/{result.ref}
+  expect: { sts_cd: POSTED }
+confirm:
+  level: biometric
+  title: International transfer (SWIFT)
+  display:
+    - { key: payee_name, label: To, value: "{result.payee_name}" }
+    - { key: masked_destination, label: IBAN, value: "{input.iban|masked}" }
+    - { key: swift, label: SWIFT / BIC, value: "{input.swift|upper}" }
+    - { key: country, label: Country, value: "{input.country|default:Not given}" }
+    - { key: amount, label: Amount, value: "{input.amount|money:input.currency}" }
+    - { key: fee, label: Fee, value: "{result.fee|money:input.currency}" }
+    - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
+ui:
+  say:
+    start: "I'm preparing an international transfer of {amount} to {payee_name}."
+    done: "Done. {amount} is on its way to {payee_name}. It arrives in one to three business days."
+  route: /app/transfers/abroad
+  form: abroad
+  fields:
+    - { target: abroad-beneficiary, display: payee_name }
+    - { target: abroad-iban, display: masked_destination }
+    - { target: abroad-swift, display: swift }
+    - { target: abroad-country, display: country }
+    - { target: abroad-amount, display: amount }
+  submit: abroad-continue

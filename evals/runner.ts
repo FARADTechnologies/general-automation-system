@@ -25,7 +25,7 @@ const ONLY = arg('only', '');
 // --resume <results.json>: keep that run's records and re-run only the runs that ended in an
 // infrastructure error (model gateway down, rate limit, network). Model failures are kept.
 const RESUME = arg('resume', '');
-const INFRA = /(5\d\d|429)|ECONN|fetch failed|timed? ?out|overloaded|Connection error|network|Tunnel/i;
+const INFRA = /\b(5\d\d|429)\b|ECONN|fetch failed|timed? ?out|overloaded|Connection error|network|Tunnel/i;
 const MODEL = arg('model', process.env.AGENT_MODEL || 'claude-sonnet-5-5');
 const EFFORT = arg('effort', process.env.AGENT_EFFORT || 'medium') as 'low' | 'medium' | 'high';
 const SPEED = arg('speed', process.env.AGENT_SPEED || 'standard');

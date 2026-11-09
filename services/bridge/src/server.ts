@@ -100,11 +100,13 @@ export function createBridge(opts: BridgeOptions) {
   agent.post('/vault/ingress', (req, res) => {
     const { session, kind, value } = req.body || {};
     if (!SESSION_RE.test(String(session))) { res.status(400).json({ code: 'SESSION_REQUIRED' }); return; }
-    const v = String(value || '').replace(/\D/g, '');
+    const v = kind === 'iban' ? String(value || '').replace(/\s+/g, '').toUpperCase() : String(value || '').replace(/\D/g, '');
     if (kind === 'pan' && (v.length < 13 || v.length > 19)) { res.status(400).json({ code: 'BAD_VALUE' }); return; }
     if (kind === 'phone' && (v.length < 9 || v.length > 15)) { res.status(400).json({ code: 'BAD_VALUE' }); return; }
-    if (kind !== 'pan' && kind !== 'phone') { res.status(400).json({ code: 'BAD_KIND' }); return; }
-    const e = vault.mint(String(session), kind, v, { provenance: 'ingress_token', masked: kind === 'pan' ? maskPan(v) : maskPhone(v), mintedBy: 'ingress' });
+    if (kind === 'iban' && !/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(v)) { res.status(400).json({ code: 'BAD_VALUE' }); return; }
+    if (kind !== 'pan' && kind !== 'phone' && kind !== 'iban') { res.status(400).json({ code: 'BAD_KIND' }); return; }
+    const masked = kind === 'pan' ? maskPan(v) : kind === 'phone' ? maskPhone(v) : `${v.slice(0, 2)}•• •••• ${v.slice(-4)}`;
+    const e = vault.mint(String(session), kind, v, { provenance: 'ingress_token', masked, mintedBy: 'ingress' });
     audit.write({ trace_id: String(req.body.trace_id || 'ingress'), session: String(session), actor: 'agent', event: 'vault.ingress', capability: null, decision: 'tokenized', detail: { kind, token: e.token, masked: e.masked } });
     res.json({ token: e.token, masked: e.masked });
   });

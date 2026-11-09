@@ -21,7 +21,7 @@ export class VaultError extends Error {
   constructor(public code: 'TOKEN_UNKNOWN' | 'TOKEN_FOREIGN' | 'TOKEN_KIND', msg: string) { super(msg); }
 }
 
-const PREFIX: Record<string, string> = { contact: 'ctc', account: 'acc', card: 'crd', bill: 'bll', subscription: 'sub', template: 'tpl', pan: 'pan', phone: 'tel', branch: 'brn', biller: 'blr' };
+const PREFIX: Record<string, string> = { contact: 'ctc', account: 'acc', card: 'crd', bill: 'bll', subscription: 'sub', template: 'tpl', pan: 'pan', phone: 'tel', iban: 'ibn', branch: 'brn', biller: 'blr' };
 
 export class Vault {
   private byToken = new Map<string, VaultEntry>();

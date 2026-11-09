@@ -1,9 +1,9 @@
 // Presentation view for the projector (1920x1080): the mirrored phone, the live plan, and for
 // every tool step the guard decision plus what the agent saw versus what the bank received.
 // Everything shown comes from this session's real trace events and the Bridge's audit log.
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { ShieldCheck, Mic, Wifi, WifiOff } from 'lucide-react';
+import { ShieldCheck, Mic, Wifi, WifiOff, Sun, Moon } from 'lucide-react';
 import { StoreProvider } from '../app/store/Store.jsx';
 import { Shell, ModeCtx } from '../app/App.jsx';
 import { hub, useUi, useHubEvent, useConnected, type HubEvent } from '../runtime/hub.ts';
@@ -29,6 +29,15 @@ const GUARD_TEXT: Record<string, string> = {
 };
 const STEP_STATUS: Record<string, PlanStep['status']> = { pending: 'pending', running: 'running', waiting_confirmation: 'running', done: 'done', failed: 'failed', skipped: 'skipped' };
 const clip = (s: string, n = 420) => (s.length > n ? s.slice(0, n) + ' …' : s);
+
+// Projector theme: light by default, toggled with T or the header button, remembered per browser.
+// It is set on <html> so the mirrored phone and the panels switch together with the stage.
+type Theme = 'light' | 'dark';
+const THEME_KEY = 'gas-stage-theme';
+function readTheme(): Theme {
+  try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; } catch { return 'light'; }
+}
+const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 
 function seesRows(turn: Trace[], bank: any[]): SeesRow[] {
   const rows: SeesRow[] = [];
@@ -64,6 +73,12 @@ export default function Stage() {
   const status = useUi((s) => s.agent.status);
   const connected = useConnected();
   const [backup, setBackup] = useState(false);
+  const [theme, setTheme] = useState<Theme>(readTheme);
+  const toggleTheme = useCallback(() => setTheme((t) => (t === 'light' ? 'dark' : 'light')), []);
+  useLayoutEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem(THEME_KEY, theme); } catch { /* storage blocked */ }
+  }, [theme]);
 
   useHubEvent('trace.event', useCallback((e: HubEvent) => setTraces((t) => [...t.slice(-200), e.payload as Trace]), []));
   const refreshBank = useCallback(async () => {
@@ -75,10 +90,11 @@ export default function Stage() {
     const k = (e: KeyboardEvent) => {
       if (e.key === 'b' || e.key === 'B') setBackup((x) => !x);
       if (e.key.toLowerCase() === 'r' && e.altKey && e.shiftKey) void hub.reset().then(() => { setTraces([]); setBank([]); });
+      if (e.key.toLowerCase() === 't' && !e.repeat && !e.altKey && !e.ctrlKey && !e.metaKey && !isTyping(e.target)) toggleTheme();
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, []);
+  }, [toggleTheme]);
 
   const lastTrace = traces.at(-1)?.trace_id;
   const turn = traces.filter((t) => t.trace_id === lastTrace);
@@ -102,7 +118,12 @@ export default function Stage() {
     <div className="stg">
       <header className="stg-head">
         <div className="stg-brand"><ShieldCheck size={22} /> Action layer for Caspia Bank <span className="stg-sub">live session {hub.session}</span></div>
-        <div className={'stg-conn ' + (connected ? 'on' : 'off')}>{connected ? <Wifi size={16} /> : <WifiOff size={16} />} {connected ? 'Connected' : 'Reconnecting'}</div>
+        <div className="stg-tools">
+          <button type="button" className="stg-theme" onClick={toggleTheme} aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'} title="Light or dark (T)">
+            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
+          <div className={'stg-conn ' + (connected ? 'on' : 'off')}>{connected ? <Wifi size={16} /> : <WifiOff size={16} />} {connected ? 'Connected' : 'Reconnecting'}</div>
+        </div>
       </header>
 
       <section className="stg-phone-col">

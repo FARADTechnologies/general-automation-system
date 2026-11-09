@@ -23,8 +23,8 @@ railway variables --service app \
   --set "ELEVENLABS_API_KEY=$(get ELEVENLABS_API_KEY)" \
   --set "GROQ_API_KEY=$(get GROQ_API_KEY)" \
   --set "MISTRAL_API_KEY=$(get MISTRAL_API_KEY)" \
-  --set "AGENT_MODEL=${AGENT_MODEL:-claude-opus-5-5}" \
-  --set "AGENT_EFFORT=${AGENT_EFFORT:-medium}" \
+  --set "AGENT_MODEL=${AGENT_MODEL:-claude-haiku-5-5}" \
+  --set "AGENT_EFFORT=${AGENT_EFFORT:-low}" \
   --set "AGENT_THINKING=${AGENT_THINKING:-adaptive}" \
   --set "SESSION_CALL_CAP=40" --set "SESSION_SPEND_CAP_USD=1.50" >/dev/null
 railway up --service app --detach

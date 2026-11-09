@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Search, ShoppingCart, Coffee, Car, ShoppingBag, Zap, Smartphone, HeartPulse, Film, ArrowLeftRight, Landmark, Wallet, Gift, Repeat, Download, Share2, Flag, Copy, Split } from 'lucide-react';
 import { useStore, money, fmtDate, fmtLongDate, last4 } from '../store/Store.jsx';
 import { CATEGORIES } from '../data/seed.js';
-import { Header, Li, Seg, Empty, Donut } from '../components/ui.jsx';
+import { Header, Li, Seg, Empty } from '../components/ui.jsx';
 import { SpendByCategory, ComparePeriods, TopExpenses, IncomeSources } from '../components/AnalyticsPanels.tsx';
 
 const ICONS = { groceries: ShoppingCart, dining: Coffee, transport: Car, shopping: ShoppingBag, utilities: Zap, mobile: Smartphone, health: HeartPulse, entertainment: Film, transfers: ArrowLeftRight, loans: Landmark, income: Wallet, cashback: Gift, exchange: Repeat };
@@ -158,20 +158,10 @@ export function Analytics() {
   return (
     <main className="screen no-tabs screen-enter">
       <Header title="Spending analytics" />
-      <Seg value={period} onChange={setPeriod} options={[[7, '7 days'], [30, '30 days'], [60, '60 days']]} />
-      <div className="block" style={{ alignItems: 'center' }}>
-        <Donut data={list.map(([k, v]) => ({ label: k, value: v, color: CATEGORIES[k].color }))} size={170} center={['Spent', money(total).replace(' AZN', '')]} />
-        <div className="legend" style={{ width: '100%' }}>
-          {list.map(([k, v]) => (
-            <div key={k} className="legend-row">
-              <i style={{ background: CATEGORIES[k].color }} />
-              <span>{CATEGORIES[k].label}</span>
-              <span className="muted num">{Math.round((v / total) * 100)}%</span>
-              <strong className="num">{money(v)}</strong>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Periods match what the bank calculates (7, 30 and 90 days). */}
+      <Seg value={period} onChange={setPeriod} options={[[7, '7 days'], [30, '30 days'], [90, '90 days']]} />
+      {/* The bank's own category breakdown leads the screen so the chart is visible above the assistant's reply. */}
+      <SpendByCategory period={`${period}d`} />
       <div className="block">
         <div className="between"><h3 style={{ fontSize: 16 }}>Weekly spending</h3><span className="tiny muted">AZN</span></div>
         <div className="bars">
@@ -188,7 +178,6 @@ export function Analytics() {
         <div className="block" style={{ gap: 4 }}><span className="eyebrow">Cashback earned</span><strong className="num pos" style={{ fontSize: 18 }}>+{money(cashback)}</strong></div>
         <div className="block" style={{ gap: 4 }}><span className="eyebrow">Daily average</span><strong className="num" style={{ fontSize: 18 }}>{money(total / period)}</strong></div>
       </div>
-      <SpendByCategory period={`${period}d`} />
       <ComparePeriods period={`${period}d`} />
       <TopExpenses period={`${period}d`} />
       <IncomeSources period={`${period}d`} />

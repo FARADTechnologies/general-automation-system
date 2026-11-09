@@ -190,6 +190,17 @@ describe('V0 golden paths with a scripted model and a real bank screen', () => {
     expect(r2.confirmations[0]).toMatchObject({ outcome: 'committed', verified: true });
   });
 
+  it('a turn that failed without an answer does not break the next request', async () => {
+    const s = 'p-after-error';
+    await st.customer(s);
+    await expect(turn(s, 'What is my balance?', () => { throw new Error('gateway unavailable'); })).rejects.toThrow();
+    await turn(s, 'What is my balance?', (_req, n) => (n === 0 ? [tool('accounts_list')] : [text('Here are your balances.')]));
+    const msgs = model.requests[0].messages as { role: string }[];
+    // a runtime system message must be last or followed by an assistant turn
+    const bad = msgs.findIndex((m, i) => m.role === 'system' && i < msgs.length - 1 && msgs[i + 1].role !== 'assistant');
+    expect(bad).toBe(-1);
+  });
+
   it('a generic follow-up after a confirmed action starts a fresh task next time', async () => {
     const s = 'p-chain-generic';
     await st.customer(s);

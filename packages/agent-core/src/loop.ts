@@ -110,6 +110,11 @@ export async function runTurn(
   for (const m of minted) ledger.evidence.tokens[m.token] = { provenance: 'ingress_token', capability: 'ingress', label: m.masked };
   events.ledger(ledger);
 
+  // A turn that ended without an answer (model error, stop, cap) leaves the history ending in a
+  // runtime system message. The API accepts a system message only before an assistant turn or at
+  // the end, so close the old turn with a short assistant note instead of editing history.
+  const tail = state.messages[state.messages.length - 1] as { role: string } | undefined;
+  if (tail?.role === 'system') state.messages.push({ role: 'assistant', content: [{ type: 'text', text: '(The previous request ended without an answer.)' }] });
   state.messages.push({ role: 'user', content: llmText });
   state.messages.push({ role: 'system', content: renderLedger(ledger) } as MessageParam);
 

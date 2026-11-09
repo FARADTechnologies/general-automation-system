@@ -51,5 +51,8 @@ confirm:
 errors:
   CRD_STS_SAME: { code: ALREADY_BLOCKED, message: "This card is already blocked." }
 ui:
+  say:
+    start: "I'm preparing to block your card {card}."
+    done: "Done. Your card {card} is blocked."
   route: /app/cards
   fields: []

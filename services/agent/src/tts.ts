@@ -14,7 +14,8 @@ export interface TtsConfig {
 
 /** Fixed lines spoken at moments of the flow (no model text involved). Synthesised once. */
 export const PHRASES: Record<string, string> = {
-  confirm: 'Please check the details on the bank screen, and confirm.',
+  ack: 'Sure, one moment.',
+  confirm: 'Please confirm on the bank screen.',
 };
 
 interface Clip { chunks: Buffer[]; done: boolean; failed: boolean; waiters: Set<() => void>; at: number; model?: string }

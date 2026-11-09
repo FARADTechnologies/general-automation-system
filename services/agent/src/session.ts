@@ -35,6 +35,9 @@ export class Session {
   /** A phone in this session has spoken replies on; answers are then voiced as soon as they exist. */
   voiceOn = false;
   ttsChars = 0;
+  private sayCount = 0;
+  private spokeDone = false;
+  private doneLines = new Map<string, string>();
 
   constructor(readonly id: string, private cfg: RuntimeConfig) {
     this.hub = new Hub(id);
@@ -71,14 +74,23 @@ export class Session {
     return id;
   }
 
-  /** Start voicing an answer before the phone asks for it, within the session's speech budget. */
-  private voice(id: string, text: string) {
+  /** Speak a line on the phone: synthesis starts now, and the phone plays lines in order as they
+   *  arrive. Lines come from the bank's own values (step narration) or the final answer. */
+  private say(text: string | undefined, id = `say-${Date.now()}-${++this.sayCount}`) {
     const tts = this.cfg.tts;
-    if (!this.voiceOn || !tts?.enabled) return;
+    if (!text || !this.voiceOn || !tts?.enabled) return;
     const spoken = speakable(text);
     if (this.ttsChars + spoken.length > Number(process.env.TTS_SESSION_CHAR_CAP || 6000)) return;
     this.ttsChars += spoken.length;
     tts.start(`${this.id}:${id}`, spoken);
+    this.hub.emit('agent.say', { id, text });
+  }
+
+  /** The final answer is spoken unless a step already said it was done in this turn; a question
+   *  (for example "which Ali?" in the middle of a chain) is always spoken. */
+  private voice(id: string, text: string) {
+    if (this.spokeDone && !/\?/.test(text)) return;
+    this.say(text, id);
   }
 
   /** Run one user turn. Throws 'BUSY' or 'RATE_LIMIT' for the HTTP layer to map. */
@@ -92,6 +104,7 @@ export class Session {
     this.inputTimes.push(now);
 
     this.busy = true;
+    this.spokeDone = false;
     this.abort = new AbortController();
     this.transcript('user', clean);
     this.hub.emit('agent.transcript', { role: 'user', text: clean, source });
@@ -163,9 +176,12 @@ export class Session {
   /** Deterministic UI choreography from the manifest's ui block. Display values come from the Bridge, never from the LLM. */
   private async choreograph(preparedId: string, capability: string) {
     const step = this.cfg.choreographyStepMs;
-    let plan: { ui?: { route: string; form?: string; fields: { target: string; value: string }[]; submit?: string } } = {};
+    let plan: { ui?: { route: string; form?: string; fields: { target: string; value: string }[]; submit?: string; say?: { start?: string; done?: string } } } = {};
     try { plan = await this.bridge.uiPlan(preparedId); } catch { /* fall through to the confirmation screen */ }
     const ui = plan.ui;
+    // narrate the step while the form fills; keep the "done" line for when the bank confirms
+    this.say(ui?.say?.start);
+    if (ui?.say?.done) this.doneLines.set(preparedId, ui.say.done);
     if (ui && ROUTE_RE.test(ui.route)) {
       this.hub.patch({ route: ui.route, modal: null, highlight: null });
       await sleep(step);
@@ -192,6 +208,8 @@ export class Session {
         if (this.hub.state.modal?.kind === 'confirm' && this.hub.state.modal.confirmId === preparedId) this.hub.patch({ modal: null });
         this.hub.emit('confirm.resolved', { confirmId: preparedId, outcome: o.outcome, verified: o.verified });
         if (o.outcome === 'committed') { this.hub.patch({ bankVersion: this.hub.state.bankVersion + 1 }); this.hub.emit('bank.changed', { reason: 'commit' }); }
+        if (o.outcome === 'committed' && o.verified && this.doneLines.has(preparedId)) { this.say(this.doneLines.get(preparedId)); this.spokeDone = true; }
+        this.doneLines.delete(preparedId);
         resolve(o);
       };
       const timer = setTimeout(() => finish({ outcome: 'expired', verified: false }), this.cfg.confirmTimeoutMs);

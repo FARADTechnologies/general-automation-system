@@ -1,12 +1,12 @@
 // Agent dock: push-to-talk and text input, agent status, live plan, last exchange.
 import React, { useEffect, useRef, useState } from 'react';
 import { Mic, SendHorizontal, Square, Sparkles, Check, X, Loader2, Circle, Volume2, VolumeX } from 'lucide-react';
-import { hub, useUi, useConnected } from '../../runtime/hub.ts';
+import { hub, useUi, useConnected, useHubEvent } from '../../runtime/hub.ts';
 import { speechSupported, startListening } from '../../runtime/voice.ts';
 import { useMode } from '../App.jsx';
 import { useLocation } from 'react-router-dom';
 import { RichText } from '../../runtime/RichText';
-import { speakAnswer, unlockAudio, stopSpeaking, voiceRepliesOn, setVoiceReplies, announceVoice, playPhrase } from '../../runtime/speech.ts';
+import { unlockAudio, stopSpeaking, voiceRepliesOn, setVoiceReplies, announceVoice, queueLine, queuePhrase, dropPhrase } from '../../runtime/speech.ts';
 
 const STATUS_TEXT: Record<string, string> = {
   idle: 'Ask me to do something',
@@ -36,7 +36,6 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
   const [open, setOpen] = useState(false);
   const stopRef = useRef<() => void>();
   const [voiceOn, setVoiceOn] = useState(voiceRepliesOn());
-  const spokenRef = useRef<string | null | undefined>(undefined);
   const busy = !['idle', 'paused', 'error', 'handoff'].includes(status);
 
   useEffect(() => {
@@ -49,6 +48,7 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
     if (!v || busy) return;
     unlockAudio(); stopSpeaking(); void announceVoice(hub.session, voiceOn);
     hub.input(v, 'text');
+    if (mode === 'phone') queuePhrase('ack');
     setText('');
     setOpen(true);
   };
@@ -59,7 +59,7 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
     setListening(true); setPartial('');
     stopRef.current = startListening({
       onPartial: setPartial,
-      onFinal: (t) => { hub.input(t, 'voice'); setOpen(true); },
+      onFinal: (t) => { hub.input(t, 'voice'); setOpen(true); if (mode === 'phone') queuePhrase('ack'); },
       onError: (m) => setPartial(m),
       onEnd: () => { setListening(false); setTimeout(() => setPartial(''), 1500); },
     });
@@ -69,21 +69,20 @@ export default function AgentDock({ withTabs }: { withTabs: boolean }) {
   const lastUser = [...transcript].reverse().find((t) => t.role === 'user');
   const lastAgent = [...transcript].reverse().find((t) => t.role === 'agent');
   const showAgentReply = lastAgent && lastUser && lastAgent.at >= lastUser.at;
-  // Speak each new answer once, on the phone only; answers that were already there when the page
-  // opened are not read out.
-  useEffect(() => {
-    if (spokenRef.current === undefined) { spokenRef.current = lastAgent?.id ?? null; return; }
-    if (!lastAgent || lastAgent.id === spokenRef.current || !showAgentReply || mode !== 'phone') return;
-    spokenRef.current = lastAgent.id;
-    void speakAnswer(hub.session, lastAgent.id, lastAgent.text);
-  }, [lastAgent?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Running commentary: the session sends each line as it happens (step narration, the bank's
+  // confirmation, the final answer) and the phone plays them in order.
+  useHubEvent('agent.say', (e) => {
+    if (mode !== 'phone') return;
+    const p = e.payload as { id: string; text: string };
+    queueLine(hub.session, p.id, p.text);
+  });
   const toggleVoice = () => { const on = !voiceOn; setVoiceOn(on); setVoiceReplies(on); void announceVoice(hub.session, on); if (on) unlockAudio(); };
   // Tell the session this phone listens, so answers are voiced as soon as they are written.
   useEffect(() => { if (mode === 'phone') void announceVoice(hub.session, voiceOn); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
   // Speak with the action: a short fixed line the moment the bank's confirmation screen opens.
   const modal = useUi((s) => s.modal);
   const confirmId = modal?.kind === 'confirm' ? (modal as { confirmId: string }).confirmId : null;
-  useEffect(() => { if (confirmId && mode === 'phone') void playPhrase('confirm'); }, [confirmId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (mode !== 'phone') return; if (confirmId) queuePhrase('confirm'); else dropPhrase('confirm'); }, [confirmId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const statusText = listening ? 'Listening…' : (note && (status === 'paused' || status === 'error') ? note : STATUS_TEXT[status] || status);
 

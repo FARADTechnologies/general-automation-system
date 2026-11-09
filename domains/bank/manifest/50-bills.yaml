@@ -98,6 +98,9 @@ confirm:
     - { key: fee, label: Fee, value: "{result.fee|money:lookup.bill.ccy}" }
     - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
 ui:
+  say:
+    start: "I'm preparing your {biller} bill of {amount}."
+    done: "Done. Your {biller} bill is paid."
   route: /app/payments/bill
   form: bill
   fields:

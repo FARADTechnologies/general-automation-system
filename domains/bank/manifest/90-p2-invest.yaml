@@ -166,4 +166,7 @@ confirm:
 errors:
   SYM_NF: { code: INSTRUMENT_NOT_FOUND, message: "No such instrument." }
 ui:
+  say:
+    start: "I'm preparing a buy order for {instrument}."
+    done: "Done. Your order for {instrument} is placed."
   route: /app/invest

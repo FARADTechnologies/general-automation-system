@@ -8,6 +8,9 @@ import { Vault, VaultError, type Provenance } from './vault.ts';
 import type { Policy } from './policy.ts';
 import type { AuditLog } from './audit.ts';
 
+/** Fill a narration template like "Done. {amount} has been sent to {payee_name}." from display values. */
+const fillSay = (t: string | undefined, by: Record<string, string>) => (t ? t.replace(/\{(\w+)\}/g, (_m, k: string) => by[k] ?? '').replace(/\s{2,}/g, ' ').trim() : undefined);
+
 // ---------------- core bank client ----------------
 export class CoreError extends Error {
   constructor(public status: number, public rsn_cd: string, msg: string) { super(msg); }
@@ -57,7 +60,7 @@ export interface PreparedObject {
   payloadHash: string; createdAt: number; expiresAt: number;
   status: 'awaiting_confirmation' | 'committing' | 'committed' | 'denied' | 'expired' | 'failed' | 'cancelled';
   verified: boolean; trace_id: string; error?: ToolError;
-  ui?: { route: string; form?: string; fields: { target: string; value: string }[]; submit?: string };
+  ui?: { route: string; form?: string; fields: { target: string; value: string }[]; submit?: string; say?: { start?: string; done?: string } };
   dedupeKey: string;
   scope: Scope; // internal only, never serialised to agent or UI
   policyRecord: { group?: string; currency?: string; amount?: number };
@@ -241,7 +244,12 @@ export class Engine {
       display, warnings: decision.warnings, extraConfirmation: decision.extraConfirmation,
       payloadHash: sha256(canonical({ id, cap: cap.id, session, body, display, warnings: decision.warnings })),
       createdAt: this.now(), expiresAt: this.now() + ttl, status: 'awaiting_confirmation', verified: false, trace_id,
-      ui: cap.ui ? { route: cap.ui.route, form: cap.ui.form, submit: cap.ui.submit, fields: (cap.ui.fields || []).map((f) => ({ target: f.target, value: byKey[f.display] ?? '' })) } : undefined,
+      ui: cap.ui ? {
+        route: cap.ui.route, form: cap.ui.form, submit: cap.ui.submit,
+        fields: (cap.ui.fields || []).map((f) => ({ target: f.target, value: byKey[f.display] ?? '' })),
+        // spoken lines for this step, filled only from the values the bank screen will show
+        say: cap.ui.say ? { start: fillSay(cap.ui.say.start, byKey), done: fillSay(cap.ui.say.done, byKey) } : undefined,
+      } : undefined,
       dedupeKey, scope, policyRecord: { group: p.limit_group, currency, amount },
     };
     this.prepared.set(id, po);

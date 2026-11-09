@@ -64,6 +64,9 @@ confirm:
 errors:
   SAME_ACCT: { code: SAME_ACCOUNT, message: "Source and destination are the same account." }
 ui:
+  say:
+    start: "I'm preparing to move {amount} to {destination}."
+    done: "Done. {amount} has been moved to {destination}."
   route: /app/transfers/own
 ---
 id: transfer.card.prepare
@@ -130,6 +133,9 @@ confirm:
     - { key: fee, label: Fee, value: "{result.fee|money:input.currency}" }
     - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
 ui:
+  say:
+    start: "I'm preparing {amount} to the card {masked_destination}."
+    done: "Done. {amount} has been sent."
   route: /app/transfers/contact
   form: transfer
   fields:
@@ -200,6 +206,9 @@ confirm:
 errors:
   MSISDN_NF: { code: NOT_A_CUSTOMER, message: "No Caspia customer has this phone number." }
 ui:
+  say:
+    start: "I'm preparing {amount} for {payee_name}."
+    done: "Done. {amount} has been sent to {payee_name}."
   route: /app/transfers/contact
   form: transfer
   fields:
@@ -300,6 +309,9 @@ confirm:
     - { key: fee, label: Fee, value: "{result.fee|money:lookup.tmpl.ccy}" }
     - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
 ui:
+  say:
+    start: "I'm using your {template} template for {amount}."
+    done: "Done. {amount} has been sent to {payee_name}."
   route: /app/transfers/contact
   form: transfer
   fields:
@@ -356,6 +368,9 @@ confirm:
 errors:
   CRD_STS_SAME: { code: ALREADY_ACTIVE, message: "This card is already active." }
 ui:
+  say:
+    start: "I'm preparing to unblock your card {card}."
+    done: "Done. Your card {card} is active again."
   route: /app/cards
   fields: []
 ---
@@ -419,6 +434,9 @@ confirm:
 errors:
   TOPUP_INV: { code: INVALID_NUMBER, message: "That is not a valid mobile number for this operator." }
 ui:
+  say:
+    start: "I'm preparing a {amount} top-up on {operator}."
+    done: "Done. The {amount} top-up went through."
   route: /app/payments
 ---
 id: topup.own.prepare
@@ -482,4 +500,7 @@ confirm:
     - { key: amount, label: Amount, value: "{input.amount|money:AZN}" }
     - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
 ui:
+  say:
+    start: "I'm preparing a {amount} top-up on your {operator} number."
+    done: "Done. Your number is topped up with {amount}."
   route: /app/payments

@@ -103,6 +103,9 @@ confirm:
 errors:
   BNF_NF: { code: CONTACT_NOT_FOUND, message: "That contact was not found." }
 ui:
+  say:
+    start: "I'm preparing {amount} for {payee_name}."
+    done: "Done. {amount} has been sent to {payee_name}."
   route: /app/transfers/contact
   form: transfer
   fields:

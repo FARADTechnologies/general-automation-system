@@ -195,6 +195,9 @@ confirm:
 errors:
   SBSCR_INACTIVE: { code: ALREADY_CANCELLED, message: "This subscription is already cancelled." }
 ui:
+  say:
+    start: "I'm preparing to cancel {merchant}."
+    done: "Done. {merchant} is cancelled."
   route: /app/subscriptions
 ---
 id: bills.pay_all.prepare
@@ -245,6 +248,9 @@ confirm:
 errors:
   NO_UNPAID: { code: NOTHING_TO_PAY, message: "There are no unpaid bills." }
 ui:
+  say:
+    start: "I'm preparing all {count} bills, {amount} in total."
+    done: "Done. All your bills are paid."
   route: /app/bills
 ---
 id: branches.list
@@ -322,6 +328,9 @@ confirm:
 errors:
   VIRTUAL: { code: VIRTUAL_CARD, message: "Virtual cards cannot be delivered to a branch." }
 ui:
+  say:
+    start: "I'm ordering a replacement card for pickup at {branch}."
+    done: "Done. Your new card will be ready at {branch}."
   route: /app/cards
 ---
 id: transfer.recurring.prepare
@@ -395,6 +404,9 @@ confirm:
     - { key: start, label: First payment, value: "{result.start}" }
     - { key: source_account, label: From, value: "{lookup.source.acct_nm} •••• {lookup.source.acct_no|last4}" }
 ui:
+  say:
+    start: "I'm setting up {amount} {frequency} for {payee_name}."
+    done: "Done. The {frequency} transfer to {payee_name} is set up, starting {start}."
   route: /app/transfers/recurring
 ---
 id: split.calculate
@@ -472,6 +484,9 @@ confirm:
     - { key: amount, label: Amount each, value: "{input.amount|money:AZN}" }
     - { key: note, label: Note, value: "{input.note}" }
 ui:
+  say:
+    start: "I'm preparing a request for {amount} from {payee_name}."
+    done: "Done. The request has been sent."
   route: /app/transfers
 ---
 id: kb.search

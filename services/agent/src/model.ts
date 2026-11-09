@@ -34,6 +34,8 @@ export interface ModelOptions {
   baseURL?: string;
   /** Bearer token for gateways that expect Authorization instead of x-api-key. */
   authToken?: string;
+  /** Cache lifetime. A gateway that adds its own 1-hour breakpoints needs ours to match. */
+  cacheTtl?: '5m' | '1h';
 }
 
 export class AnthropicModel implements ModelClient {
@@ -59,16 +61,19 @@ export class AnthropicModel implements ModelClient {
       description: t.description,
       input_schema: (strictNames.has(t.name) ? strictSchema(t.inputSchema) : t.inputSchema) as Anthropic.Beta.Messages.BetaTool.InputSchema,
       ...(strictNames.has(t.name) ? { strict: true } : {}),
-      ...(i === req.tools.length - 1 ? { cache_control: { type: 'ephemeral' as const } } : {}),
     }));
+    // Cache breakpoints: the system block (tools come before it in the prefix, so it caches them
+    // too) and automatic caching of the conversation. Two only, because the API allows four and
+    // a gateway may add its own.
+    const cache = this.opts.cacheTtl === '1h' ? { type: 'ephemeral' as const, ttl: '1h' as const } : { type: 'ephemeral' as const };
     const t0 = Date.now();
     const params: Record<string, unknown> = {
       model: this.opts.model,
       max_tokens: this.opts.maxTokens ?? 4096,
-      system: [{ type: 'text', text: req.system, cache_control: { type: 'ephemeral' } }],
+      system: [{ type: 'text', text: req.system, cache_control: cache }],
       tools,
       messages: req.messages,
-      cache_control: { type: 'ephemeral' },
+      cache_control: cache,
       thinking: { type: this.opts.thinking },
       output_config: { effort: this.opts.effort },
     };

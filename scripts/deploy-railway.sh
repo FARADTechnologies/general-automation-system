@@ -11,6 +11,7 @@ railway variables --service app \
   --set "ANTHROPIC_BASE_URL=$(get ANTHROPIC_BASE_URL)" \
   --set "ANTHROPIC_AUTH_TOKEN=$(get ANTHROPIC_AUTH_TOKEN)" \
   --set "AGENT_FALLBACK=$(get AGENT_FALLBACK)" \
+  --set "AGENT_CACHE_TTL=$(get AGENT_CACHE_TTL)" \
   --set "GEMINI_API_KEY=$(get GEMINI_API_KEY)" \
   --set "AGENT_PROVIDER=${AGENT_PROVIDER:-$(get AGENT_PROVIDER)}" \
   --set "GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.6-flash}" \

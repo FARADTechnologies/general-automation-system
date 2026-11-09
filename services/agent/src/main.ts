@@ -29,6 +29,7 @@ const model = provider !== 'anthropic' && provider !== 'gemini' ? openAICompatFr
   fallback: process.env.AGENT_FALLBACK !== '0',
   baseURL: process.env.ANTHROPIC_BASE_URL,
   authToken: process.env.ANTHROPIC_AUTH_TOKEN,
+  cacheTtl: process.env.AGENT_CACHE_TTL === '1h' ? '1h' : '5m',
 }, process.env.ANTHROPIC_API_KEY);
 
 const { server } = createAgentServer({

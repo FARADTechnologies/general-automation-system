@@ -1,10 +1,12 @@
-# Action layer for bank apps
+# Action layer for complex apps
 
 > 🥉 **3rd place, YUNEX 2026 · Recode Finance: Shape the Future of Money**
 > Selected by the jury among 20 finalist teams at the final pitches on 10 November 2026 in Quba, Azerbaijan, and awarded a place in YUNEX's international exchange programme in Poland in 2027.
 > Team FARAD · [Official results](https://www.yunex.info/editions/2026)
 
-An assistant that **does the work inside a bank's existing mobile app**. The customer says or types one sentence; the assistant walks the real app screens, fills the forms, chains several features, and stops at the bank's own confirmation screen, where the customer approves. The bank never shares its source code: a Bridge installed inside the bank exposes only the capabilities the bank chooses.
+A general automation layer that lets people use complex apps by saying what they want done. The user says or types one sentence; the assistant navigates the real app screens, fills in the details, chains several features, and prepares the action, stopping where a human must review and confirm. The system owner never shares its source code: a Bridge installed on their side exposes only the capabilities they choose.
+
+The core is domain-agnostic; a domain is a pack of capability manifests over the system's existing internal APIs. **This repository applies it to banking**, the domain with the hardest trust requirements: the assistant works inside a bank's mobile app and every money movement ends on the bank's own confirmation screen.
 
 Built during the YUNEX 2026 hackathon. The bank (Caspia Bank) and all data are fictional.
 

@@ -1,8 +1,12 @@
-# Action layer for bank apps
+# Spoken: an action layer for bank apps
+
+> 🥉 **3rd place, YUNEX 2026 · Recode Finance: Shape the Future of Money**
+> Selected by the jury among 20 finalist teams at the final pitches on 10 November 2026 in Quba, Azerbaijan, and awarded a place in YUNEX's international exchange programme in Poland in 2027.
+> Team FARAD · [Official results](https://www.yunex.info/editions/2026)
 
 An assistant that **does the work inside a bank's existing mobile app**. The customer says or types one sentence; the assistant walks the real app screens, fills the forms, chains several features, and stops at the bank's own confirmation screen, where the customer approves. The bank never shares its source code: a Bridge installed inside the bank exposes only the capabilities the bank chooses.
 
-Built for YUNEX 2026 · Recode Finance. The bank (Caspia Bank) and all data are fictional.
+Built during the YUNEX 2026 hackathon. The bank (Caspia Bank) and all data are fictional.
 
 ## Try it
 

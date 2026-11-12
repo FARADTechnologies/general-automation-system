@@ -1,4 +1,4 @@
-# AI action layer for existing apps
+# AI action layer for complex software
 
 > 🥉 **3rd place, YUNEX 2026 · Recode Finance: Shape the Future of Money**
 > Selected by the jury among 20 finalist teams at the final pitches on 10 November 2026 in Quba, Azerbaijan, and awarded a place in YUNEX's international exchange programme in Poland in 2027.

@@ -1,4 +1,4 @@
-# Spoken: an action layer for bank apps
+# Action layer for bank apps
 
 > 🥉 **3rd place, YUNEX 2026 · Recode Finance: Shape the Future of Money**
 > Selected by the jury among 20 finalist teams at the final pitches on 10 November 2026 in Quba, Azerbaijan, and awarded a place in YUNEX's international exchange programme in Poland in 2027.
